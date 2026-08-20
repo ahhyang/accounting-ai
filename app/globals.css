@@ -1,0 +1,184 @@
+:root {
+  color-scheme: dark;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: Inter, Segoe UI, Arial, sans-serif;
+  background: #0b1020;
+  color: #eef2ff;
+}
+
+a {
+  color: #9db4ff;
+  text-decoration: none;
+}
+
+a:hover {
+  text-decoration: underline;
+}
+
+.nav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 24px;
+  border-bottom: 1px solid #273159;
+  background: #0f1630;
+}
+
+.nav-links {
+  display: flex;
+  gap: 16px;
+}
+
+.container {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 24px;
+}
+
+.grid {
+  display: grid;
+  gap: 16px;
+}
+
+.metrics {
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+}
+
+.card {
+  background: #131a31;
+  border: 1px solid #273159;
+  border-radius: 12px;
+  padding: 16px;
+}
+
+.muted {
+  color: #99a2c7;
+}
+
+.btn {
+  background: #4f6bff;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  padding: 10px 16px;
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.btn:hover {
+  background: #3d56d9;
+}
+
+.btn.secondary {
+  background: #273159;
+}
+
+.btn.small {
+  padding: 6px 10px;
+  font-size: 13px;
+}
+
+.btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.form label {
+  display: grid;
+  gap: 6px;
+  font-size: 14px;
+}
+
+input,
+select {
+  background: #0b1020;
+  border: 1px solid #273159;
+  border-radius: 8px;
+  color: #eef2ff;
+  padding: 10px 12px;
+}
+
+.row {
+  display: flex;
+  gap: 12px;
+  margin-top: 12px;
+}
+
+.row input {
+  flex: 1;
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+}
+
+.table th,
+.table td {
+  border-bottom: 1px solid #273159;
+  padding: 10px 8px;
+  text-align: left;
+}
+
+.mono {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 12px;
+}
+
+.message {
+  margin-top: 12px;
+  color: #9db4ff;
+}
+
+.message.error {
+  color: #ff8a8a;
+}
+
+.checklist {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.checklist li {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 0;
+  border-bottom: 1px solid #273159;
+}
+
+.checklist li.done {
+  color: #7ddea0;
+}
+
+.progress {
+  height: 10px;
+  background: #273159;
+  border-radius: 999px;
+  overflow: hidden;
+  margin: 12px 0;
+}
+
+.progress-bar {
+  height: 100%;
+  background: linear-gradient(90deg, #4f6bff, #7ddea0);
+}
+
+.score-card h2 {
+  margin: 0;
+  font-size: 32px;
+}
+
+.links {
+  display: grid;
+  gap: 8px;
+}

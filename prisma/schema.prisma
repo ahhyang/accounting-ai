@@ -1,0 +1,501 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum AccountType {
+  ASSET
+  LIABILITY
+  EQUITY
+  REVENUE
+  EXPENSE
+}
+
+enum JournalStatus {
+  DRAFT
+  POSTED
+  REVERSED
+}
+
+enum SourceDocumentType {
+  RECEIPT
+  SALES_INVOICE
+  PURCHASE_BILL
+  CREDIT_NOTE
+  DEBIT_NOTE
+  BANK_STATEMENT
+  PAYROLL
+  TAX
+  OTHER
+}
+
+enum SuggestionStatus {
+  PROPOSED
+  APPROVED
+  REJECTED
+}
+
+enum PermissionAction {
+  VIEW
+  CREATE
+  EDIT
+  DELETE
+  APPROVE
+  EXPORT
+  POST
+  REVERSE
+  CLOSE_PERIOD
+  MANAGE_USERS
+  VIEW_PAYROLL
+  VIEW_TAX
+  VIEW_AUDIT
+}
+
+enum MonthEndTaskStatus {
+  PENDING
+  COMPLETED
+  SKIPPED
+  NOT_APPLICABLE
+}
+
+enum DocumentStatus {
+  DRAFT
+  OPEN
+  PARTIAL
+  PAID
+  VOID
+}
+
+enum BankTxnType {
+  DEPOSIT
+  WITHDRAWAL
+  TRANSFER
+  FEE
+  OTHER
+}
+
+enum MatchStatus {
+  UNMATCHED
+  SUGGESTED
+  MATCHED
+  IGNORED
+}
+
+model Company {
+  id                 String             @id @default(cuid())
+  name               String
+  registrationNumber String?
+  businessType       String?
+  industry           String?
+  fiscalYearStart    DateTime?
+  functionalCurrency String             @default("MYR")
+  multiCurrency      Boolean            @default(false)
+  createdAt          DateTime           @default(now())
+  updatedAt          DateTime           @updatedAt
+  accounts           Account[]
+  periods            AccountingPeriod[]
+  sourceDocuments    SourceDocument[]
+  journals           JournalEntry[]
+  suggestions        AiSuggestion[]
+  branches           Branch[]
+  departments        Department[]
+  costCentres        CostCentre[]
+  projects           Project[]
+  bankAccounts       BankAccount[]
+  taxSettings        TaxSettings?
+  roles              Role[]
+  memberships        CompanyUser[]
+  monthEndRuns       MonthEndRun[]
+  customers          Customer[]
+  suppliers          Supplier[]
+  salesInvoices      SalesInvoice[]
+  purchaseBills      PurchaseBill[]
+  arReceipts         ArReceipt[]
+  apPayments         ApPayment[]
+}
+
+model User {
+  id           String        @id @default(cuid())
+  email        String        @unique
+  name         String
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+  memberships  CompanyUser[]
+}
+
+model Role {
+  id          String           @id @default(cuid())
+  companyId   String
+  name        String
+  description String?
+  isSystem    Boolean          @default(false)
+  company     Company          @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  permissions RolePermission[]
+  members     CompanyUser[]
+
+  @@unique([companyId, name])
+}
+
+model RolePermission {
+  id       String           @id @default(cuid())
+  roleId   String
+  action   PermissionAction
+  resource String           @default("*")
+  role     Role             @relation(fields: [roleId], references: [id], onDelete: Cascade)
+
+  @@unique([roleId, action, resource])
+}
+
+model CompanyUser {
+  id        String   @id @default(cuid())
+  companyId String
+  userId    String
+  roleId    String
+  isOwner   Boolean  @default(false)
+  createdAt DateTime @default(now())
+  company   Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role      Role     @relation(fields: [roleId], references: [id], onDelete: Restrict)
+
+  @@unique([companyId, userId])
+}
+
+model Branch {
+  id        String   @id @default(cuid())
+  companyId String
+  name      String
+  code      String?
+  address   String?
+  company   Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@unique([companyId, name])
+}
+
+model Department {
+  id        String   @id @default(cuid())
+  companyId String
+  name      String
+  company   Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@unique([companyId, name])
+}
+
+model CostCentre {
+  id        String   @id @default(cuid())
+  companyId String
+  name      String
+  code      String?
+  company   Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@unique([companyId, name])
+}
+
+model Project {
+  id        String   @id @default(cuid())
+  companyId String
+  name      String
+  code      String?
+  isActive  Boolean  @default(true)
+  company   Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@unique([companyId, name])
+}
+
+model BankAccount {
+  id            String            @id @default(cuid())
+  companyId     String
+  name          String
+  bankName      String?
+  accountNumber String?
+  currency      String            @default("MYR")
+  isActive      Boolean           @default(true)
+  glAccountId   String?
+  company       Company           @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  transactions  BankTransaction[]
+}
+
+model Customer {
+  id            String         @id @default(cuid())
+  companyId     String
+  name          String
+  email         String?
+  phone         String?
+  creditLimit   Decimal?       @db.Decimal(18, 2)
+  paymentTerms  Int            @default(30)
+  createdAt     DateTime       @default(now())
+  company       Company        @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  invoices      SalesInvoice[]
+  receipts      ArReceipt[]
+
+  @@unique([companyId, name])
+}
+
+model Supplier {
+  id           String         @id @default(cuid())
+  companyId    String
+  name         String
+  email        String?
+  phone        String?
+  paymentTerms Int            @default(30)
+  createdAt    DateTime       @default(now())
+  company      Company        @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  bills        PurchaseBill[]
+  payments     ApPayment[]
+
+  @@unique([companyId, name])
+}
+
+model SalesInvoice {
+  id             String              @id @default(cuid())
+  companyId      String
+  customerId     String
+  invoiceNumber  String
+  invoiceDate    DateTime
+  dueDate        DateTime
+  description    String?
+  subtotal       Decimal             @db.Decimal(18, 2)
+  taxAmount      Decimal             @default(0) @db.Decimal(18, 2)
+  total          Decimal             @db.Decimal(18, 2)
+  amountPaid     Decimal             @default(0) @db.Decimal(18, 2)
+  status         DocumentStatus      @default(OPEN)
+  journalEntryId String?
+  createdAt      DateTime            @default(now())
+  company        Company             @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  customer       Customer            @relation(fields: [customerId], references: [id], onDelete: Restrict)
+  allocations    ArPaymentAllocation[]
+
+  @@unique([companyId, invoiceNumber])
+}
+
+model ArReceipt {
+  id             String                @id @default(cuid())
+  companyId      String
+  customerId     String
+  receiptNumber  String
+  receiptDate    DateTime
+  amount         Decimal               @db.Decimal(18, 2)
+  reference      String?
+  journalEntryId String?
+  createdAt      DateTime              @default(now())
+  company        Company               @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  customer       Customer              @relation(fields: [customerId], references: [id], onDelete: Restrict)
+  allocations    ArPaymentAllocation[]
+
+  @@unique([companyId, receiptNumber])
+}
+
+model ArPaymentAllocation {
+  id         String       @id @default(cuid())
+  receiptId  String
+  invoiceId  String
+  amount     Decimal      @db.Decimal(18, 2)
+  receipt    ArReceipt    @relation(fields: [receiptId], references: [id], onDelete: Cascade)
+  invoice    SalesInvoice @relation(fields: [invoiceId], references: [id], onDelete: Restrict)
+
+  @@unique([receiptId, invoiceId])
+}
+
+model PurchaseBill {
+  id             String              @id @default(cuid())
+  companyId      String
+  supplierId     String
+  billNumber     String
+  billDate       DateTime
+  dueDate        DateTime
+  description    String?
+  subtotal       Decimal             @db.Decimal(18, 2)
+  taxAmount      Decimal             @default(0) @db.Decimal(18, 2)
+  total          Decimal             @db.Decimal(18, 2)
+  amountPaid     Decimal             @default(0) @db.Decimal(18, 2)
+  status         DocumentStatus      @default(OPEN)
+  journalEntryId String?
+  createdAt      DateTime            @default(now())
+  company        Company             @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  supplier       Supplier            @relation(fields: [supplierId], references: [id], onDelete: Restrict)
+  allocations    ApPaymentAllocation[]
+
+  @@unique([companyId, billNumber])
+}
+
+model ApPayment {
+  id             String                @id @default(cuid())
+  companyId      String
+  supplierId     String
+  paymentNumber  String
+  paymentDate    DateTime
+  amount         Decimal               @db.Decimal(18, 2)
+  reference      String?
+  journalEntryId String?
+  createdAt      DateTime              @default(now())
+  company        Company               @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  supplier       Supplier              @relation(fields: [supplierId], references: [id], onDelete: Restrict)
+  allocations    ApPaymentAllocation[]
+
+  @@unique([companyId, paymentNumber])
+}
+
+model ApPaymentAllocation {
+  id        String       @id @default(cuid())
+  paymentId String
+  billId    String
+  amount    Decimal      @db.Decimal(18, 2)
+  payment   ApPayment    @relation(fields: [paymentId], references: [id], onDelete: Cascade)
+  bill      PurchaseBill @relation(fields: [billId], references: [id], onDelete: Restrict)
+
+  @@unique([paymentId, billId])
+}
+
+model BankTransaction {
+  id            String            @id @default(cuid())
+  bankAccountId String
+  txnDate       DateTime
+  amount        Decimal           @db.Decimal(18, 2)
+  type          BankTxnType
+  description   String?
+  reference     String?
+  matchStatus   MatchStatus       @default(UNMATCHED)
+  createdAt     DateTime          @default(now())
+  bankAccount   BankAccount       @relation(fields: [bankAccountId], references: [id], onDelete: Cascade)
+  matches       ReconciliationMatch[]
+}
+
+model ReconciliationMatch {
+  id                 String          @id @default(cuid())
+  bankTransactionId  String
+  matchType          String
+  matchedDocumentId  String
+  confidence         Decimal         @db.Decimal(5, 2)
+  status             MatchStatus     @default(SUGGESTED)
+  createdAt          DateTime        @default(now())
+  bankTransaction    BankTransaction @relation(fields: [bankTransactionId], references: [id], onDelete: Cascade)
+}
+
+model TaxSettings {
+  id                 String   @id @default(cuid())
+  companyId          String   @unique
+  sstRegistered      Boolean  @default(false)
+  sstNumber          String?
+  taxRegistrationNo  String?
+  defaultTaxCode     String?
+  company            Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+}
+
+model Account {
+  id           String        @id @default(cuid())
+  companyId    String
+  code         String
+  name         String
+  type         AccountType
+  parentCode   String?
+  isActive     Boolean       @default(true)
+  allowPosting Boolean       @default(true)
+  company      Company       @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  lines        JournalLine[]
+
+  @@unique([companyId, code])
+}
+
+model AccountingPeriod {
+  id        String         @id @default(cuid())
+  companyId String
+  startDate DateTime
+  endDate   DateTime
+  isClosed  Boolean        @default(false)
+  createdAt DateTime       @default(now())
+  company   Company        @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  journals  JournalEntry[]
+  monthEndRuns MonthEndRun[]
+
+  @@unique([companyId, startDate, endDate])
+}
+
+model SourceDocument {
+  id             String             @id @default(cuid())
+  companyId      String
+  type           SourceDocumentType
+  externalRef    String?
+  fileUrl        String?
+  documentDate   DateTime?
+  extractedJson  Json?
+  createdAt      DateTime           @default(now())
+  company        Company            @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  journalEntries JournalEntry[]
+  suggestions    AiSuggestion[]
+}
+
+model JournalEntry {
+  id               String            @id @default(cuid())
+  companyId        String
+  sourceDocumentId String?
+  periodId         String?
+  journalNumber    String
+  journalDate      DateTime
+  description      String?
+  status           JournalStatus     @default(DRAFT)
+  createdAt        DateTime          @default(now())
+  postedAt         DateTime?
+  reversedFromId   String?
+  company          Company           @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  sourceDocument   SourceDocument?   @relation(fields: [sourceDocumentId], references: [id], onDelete: SetNull)
+  period           AccountingPeriod? @relation(fields: [periodId], references: [id], onDelete: SetNull)
+  lines            JournalLine[]
+
+  @@unique([companyId, journalNumber])
+}
+
+model JournalLine {
+  id        String       @id @default(cuid())
+  entryId   String
+  accountId String
+  debit     Decimal      @default(0) @db.Decimal(18, 2)
+  credit    Decimal      @default(0) @db.Decimal(18, 2)
+  memo      String?
+  entry     JournalEntry @relation(fields: [entryId], references: [id], onDelete: Cascade)
+  account   Account      @relation(fields: [accountId], references: [id], onDelete: Restrict)
+}
+
+model AiSuggestion {
+  id               String           @id @default(cuid())
+  companyId        String
+  sourceDocumentId String?
+  type             String
+  status           SuggestionStatus @default(PROPOSED)
+  confidence       Decimal          @db.Decimal(5, 2)
+  payload          Json
+  createdAt        DateTime         @default(now())
+  company          Company          @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  sourceDocument   SourceDocument?  @relation(fields: [sourceDocumentId], references: [id], onDelete: SetNull)
+}
+
+model MonthEndRun {
+  id               String         @id @default(cuid())
+  companyId        String
+  periodId         String
+  completionScore  Decimal        @default(0) @db.Decimal(5, 2)
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @updatedAt
+  company          Company        @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  period           AccountingPeriod @relation(fields: [periodId], references: [id], onDelete: Cascade)
+  tasks            MonthEndTask[]
+
+  @@unique([companyId, periodId])
+}
+
+model MonthEndTask {
+  id          String             @id @default(cuid())
+  runId       String
+  key         String
+  label       String
+  sortOrder   Int
+  status      MonthEndTaskStatus @default(PENDING)
+  completedAt DateTime?
+  completedBy String?
+  notes       String?
+  run         MonthEndRun        @relation(fields: [runId], references: [id], onDelete: Cascade)
+
+  @@unique([runId, key])
+}
