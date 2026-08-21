@@ -99,11 +99,28 @@ npm run dev
 3. Add env vars: `DATABASE_URL`, `OPENROUTER_API_KEY`
 4. Deploy — `postinstall` runs `prisma generate` automatically
 
-## Next phases
+## Client Portal + Accountant Workspace
 
-- AR/AP workflows with auto journal generation
-- Bank reconciliation matching
-- Inventory, payroll, fixed assets
-- Tax/SST and e-Invoice (Malaysia)
-- AI audit risk scoring
-- AI CFO daily briefing and scenario planning
+### Demo logins
+- Client: `client@demo.my` / `demo1234` → `/client`
+- Accountant: `accountant@demo.my` / `demo1234` → `/accountant`
+
+### Client flow
+1. Sign in → monthly checklist with clear instructions
+2. Upload bank/sales/purchase/payroll/tax docs
+3. AI extracts and proposes journals
+4. Track messages if accountant needs a clearer file
+5. View simple monthly report when ready
+
+### Accountant flow
+1. Sorted inbox (ready / needs manual / waiting on client)
+2. Review AI proposal → Approve & Post, Ask client, or Manual post
+3. Audit trail of every action
+4. Invite client users from `/accountant/clients`
+
+### Env extras
+```
+NEXTAUTH_URL=https://your-domain.vercel.app
+NEXTAUTH_SECRET=long-random-secret
+BLOB_READ_WRITE_TOKEN=optional-vercel-blob-token
+```

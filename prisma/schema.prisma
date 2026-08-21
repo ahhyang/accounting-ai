@@ -85,6 +85,39 @@ enum MatchStatus {
   IGNORED
 }
 
+enum DocumentCategory {
+  BANK
+  SALES
+  PURCHASE
+  PAYROLL
+  TAX
+  OTHER
+}
+
+enum DocumentPipelineStatus {
+  UPLOADED
+  AI_PROCESSED
+  NEEDS_CLIENT
+  IN_REVIEW
+  APPROVED
+  POSTED
+  REJECTED
+}
+
+enum DocumentRequestStatus {
+  NOT_STARTED
+  UPLOADED
+  NEEDS_FIX
+  ACCEPTED
+  SKIPPED
+}
+
+enum ReportSnapshotStatus {
+  DRAFT
+  READY
+  PUBLISHED
+}
+
 model Company {
   id                 String             @id @default(cuid())
   name               String
@@ -116,15 +149,24 @@ model Company {
   purchaseBills      PurchaseBill[]
   arReceipts         ArReceipt[]
   apPayments         ApPayment[]
+  documentRequests   DocumentRequest[]
+  clientMessages     ClientMessage[]
+  auditEvents        AuditEvent[]
+  reportSnapshots    ReportSnapshot[]
 }
 
 model User {
-  id           String        @id @default(cuid())
-  email        String        @unique
-  name         String
-  createdAt    DateTime      @default(now())
-  updatedAt    DateTime      @updatedAt
-  memberships  CompanyUser[]
+  id                 String            @id @default(cuid())
+  email              String            @unique
+  name               String
+  passwordHash       String?
+  createdAt          DateTime          @default(now())
+  updatedAt          DateTime          @updatedAt
+  memberships        CompanyUser[]
+  assignedDocuments  SourceDocument[]  @relation("AssignedDocuments")
+  uploadedDocuments  SourceDocument[]  @relation("UploadedDocuments")
+  sentMessages       ClientMessage[]   @relation("MessageSender")
+  auditEvents        AuditEvent[]
 }
 
 model Role {
@@ -409,22 +451,109 @@ model AccountingPeriod {
   company   Company        @relation(fields: [companyId], references: [id], onDelete: Cascade)
   journals  JournalEntry[]
   monthEndRuns MonthEndRun[]
+  sourceDocuments SourceDocument[]
+  documentRequests DocumentRequest[]
+  reportSnapshots ReportSnapshot[]
 
   @@unique([companyId, startDate, endDate])
 }
 
 model SourceDocument {
-  id             String             @id @default(cuid())
+  id             String                 @id @default(cuid())
   companyId      String
   type           SourceDocumentType
+  category       DocumentCategory       @default(OTHER)
+  status         DocumentPipelineStatus @default(UPLOADED)
   externalRef    String?
+  fileName       String?
   fileUrl        String?
+  storageKey     String?
+  mimeType       String?
   documentDate   DateTime?
+  periodId       String?
+  aiConfidence   Decimal?               @db.Decimal(5, 2)
+  assignedToUserId String?
+  uploadedByUserId String?
+  clientNote     String?
   extractedJson  Json?
-  createdAt      DateTime           @default(now())
-  company        Company            @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  createdAt      DateTime               @default(now())
+  updatedAt      DateTime               @updatedAt
+  company        Company                @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  period         AccountingPeriod?      @relation(fields: [periodId], references: [id], onDelete: SetNull)
+  assignedTo     User?                  @relation("AssignedDocuments", fields: [assignedToUserId], references: [id], onDelete: SetNull)
+  uploadedBy     User?                  @relation("UploadedDocuments", fields: [uploadedByUserId], references: [id], onDelete: SetNull)
   journalEntries JournalEntry[]
   suggestions    AiSuggestion[]
+  messages       ClientMessage[]
+  documentRequest DocumentRequest?
+}
+
+model DocumentRequest {
+  id               String                @id @default(cuid())
+  companyId        String
+  periodId         String
+  key              String
+  title            String
+  instructions     String
+  whyItMatters     String
+  category         DocumentCategory
+  sortOrder        Int
+  status           DocumentRequestStatus @default(NOT_STARTED)
+  sourceDocumentId String?               @unique
+  createdAt        DateTime              @default(now())
+  updatedAt        DateTime              @updatedAt
+  company          Company               @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  period           AccountingPeriod      @relation(fields: [periodId], references: [id], onDelete: Cascade)
+  sourceDocument   SourceDocument?       @relation(fields: [sourceDocumentId], references: [id], onDelete: SetNull)
+
+  @@unique([companyId, periodId, key])
+}
+
+model ClientMessage {
+  id               String         @id @default(cuid())
+  companyId        String
+  sourceDocumentId String?
+  senderUserId     String
+  body             String
+  isFromAccountant Boolean        @default(false)
+  createdAt        DateTime       @default(now())
+  company          Company        @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  sourceDocument   SourceDocument? @relation(fields: [sourceDocumentId], references: [id], onDelete: SetNull)
+  sender           User           @relation("MessageSender", fields: [senderUserId], references: [id], onDelete: Cascade)
+}
+
+model AuditEvent {
+  id         String   @id @default(cuid())
+  companyId  String
+  actorUserId String?
+  entityType String
+  entityId   String
+  action     String
+  beforeJson Json?
+  afterJson  Json?
+  reason     String?
+  ipAddress  String?
+  createdAt  DateTime @default(now())
+  company    Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  actor      User?    @relation(fields: [actorUserId], references: [id], onDelete: SetNull)
+
+  @@index([companyId, createdAt])
+  @@index([entityType, entityId])
+}
+
+model ReportSnapshot {
+  id          String               @id @default(cuid())
+  companyId   String
+  periodId    String
+  title       String
+  status      ReportSnapshotStatus @default(DRAFT)
+  summaryJson Json
+  publishedAt DateTime?
+  createdAt   DateTime             @default(now())
+  company     Company              @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  period      AccountingPeriod     @relation(fields: [periodId], references: [id], onDelete: Cascade)
+
+  @@unique([companyId, periodId])
 }
 
 model JournalEntry {

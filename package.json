@@ -11,7 +11,9 @@
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
     "prisma:studio": "prisma studio",
-    "db:seed": "tsx prisma/seed.ts"
+    "db:seed": "tsx prisma/seed.ts",
+    "db:seed:mock": "tsx prisma/seed-mock.ts",
+    "db:seed:portal": "tsx prisma/seed-portal.ts"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"
@@ -19,12 +21,16 @@
   "dependencies": {
     "@neondatabase/serverless": "^0.10.4",
     "@prisma/client": "^5.20.0",
+    "@vercel/blob": "^2.8.0",
+    "bcryptjs": "^3.0.3",
     "next": "^14.2.6",
+    "next-auth": "^4.24.15",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "zod": "^3.23.8"
   },
   "devDependencies": {
+    "@types/bcryptjs": "^3.0.0",
     "@types/node": "^20.16.3",
     "@types/react": "^18.3.5",
     "@types/react-dom": "^18.3.0",
