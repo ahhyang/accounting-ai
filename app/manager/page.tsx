@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useSession } from "next-auth/react";
 import Link from "next/link";
+import type { Route } from "next";
 
 type Period = { id: string; startDate: string; endDate: string; isClosed: boolean };
 type Overview = {
@@ -158,9 +159,9 @@ export default function ManagerPortalPage() {
       {error && <p className="message error">{error}</p>}
 
       <section className="card links">
-        <Link href={`/month-end?companyId=${companyId}`}>Month-end checklist →</Link>
-        <Link href="/accountant/inbox">Accountant inbox →</Link>
-        <Link href="/tax">Tax pack →</Link>
+        <Link href={`/month-end?companyId=${companyId}` as Route}>Month-end checklist →</Link>
+        <Link href={"/accountant/inbox" as Route}>Accountant inbox →</Link>
+        <Link href={"/tax" as Route}>Tax pack →</Link>
       </section>
     </main>
   );

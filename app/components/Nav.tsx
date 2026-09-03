@@ -1,63 +1,66 @@
 "use client";
 
 import Link from "next/link";
+import type { Route } from "next";
 import { signOut, useSession } from "next-auth/react";
 import type { AppPortal } from "@/lib/permissions/constants";
 
-const publicLinks = [
-  { href: "/" as const, label: "Home" },
-  { href: "/login" as const, label: "Login" }
+type NavLink = { href: Route; label: string };
+
+const publicLinks: NavLink[] = [
+  { href: "/", label: "Home" },
+  { href: "/login", label: "Login" }
 ];
 
-function linksForPortal(portal: AppPortal | undefined) {
+function linksForPortal(portal: AppPortal | undefined): NavLink[] {
   switch (portal) {
     case "client":
       return [
-        { href: "/client" as const, label: "Checklist" },
-        { href: "/scan" as const, label: "Scan Bill" },
-        { href: "/client/uploads" as const, label: "Upload" },
-        { href: "/client/messages" as const, label: "Messages" },
-        { href: "/client/reports" as const, label: "Reports" }
+        { href: "/client" as Route, label: "Checklist" },
+        { href: "/scan" as Route, label: "Scan Bill" },
+        { href: "/client/uploads" as Route, label: "Upload" },
+        { href: "/client/messages" as Route, label: "Messages" },
+        { href: "/client/reports" as Route, label: "Reports" }
       ];
     case "tax":
       return [
-        { href: "/tax" as const, label: "Tax pack" },
-        { href: "/sales" as const, label: "Sales" },
-        { href: "/purchases" as const, label: "Purchases" }
+        { href: "/tax" as Route, label: "Tax pack" },
+        { href: "/sales" as Route, label: "Sales" },
+        { href: "/purchases" as Route, label: "Purchases" }
       ];
     case "audit":
       return [
-        { href: "/auditor" as const, label: "Audit" },
-        { href: "/accountant/audit" as const, label: "Activity log" }
+        { href: "/auditor" as Route, label: "Audit" },
+        { href: "/accountant/audit" as Route, label: "Activity log" }
       ];
     case "manager":
       return [
-        { href: "/manager" as const, label: "Close" },
-        { href: "/month-end" as const, label: "Month-end" },
-        { href: "/accountant/inbox" as const, label: "Inbox" },
-        { href: "/tax" as const, label: "Tax" },
-        { href: "/sales" as const, label: "Sales" },
-        { href: "/purchases" as const, label: "Purchases" }
+        { href: "/manager" as Route, label: "Close" },
+        { href: "/month-end" as Route, label: "Month-end" },
+        { href: "/accountant/inbox" as Route, label: "Inbox" },
+        { href: "/tax" as Route, label: "Tax" },
+        { href: "/sales" as Route, label: "Sales" },
+        { href: "/purchases" as Route, label: "Purchases" }
       ];
     case "boss":
       return [
-        { href: "/boss" as const, label: "Oversight" },
-        { href: "/manager" as const, label: "Manager" },
-        { href: "/accountant" as const, label: "Accountant" },
-        { href: "/tax" as const, label: "Tax" },
-        { href: "/auditor" as const, label: "Audit" },
-        { href: "/client" as const, label: "Client" }
+        { href: "/boss" as Route, label: "Oversight" },
+        { href: "/manager" as Route, label: "Manager" },
+        { href: "/accountant" as Route, label: "Accountant" },
+        { href: "/tax" as Route, label: "Tax" },
+        { href: "/auditor" as Route, label: "Audit" },
+        { href: "/client" as Route, label: "Client" }
       ];
     case "accountant":
       return [
-        { href: "/accountant" as const, label: "Dashboard" },
-        { href: "/accountant/inbox" as const, label: "Inbox" },
-        { href: "/scan" as const, label: "Scan Bill" },
-        { href: "/sales" as const, label: "Sales" },
-        { href: "/purchases" as const, label: "Purchases" },
-        { href: "/banking" as const, label: "Banking" },
-        { href: "/month-end" as const, label: "Month-End" },
-        { href: "/accountant/audit" as const, label: "Audit log" }
+        { href: "/accountant" as Route, label: "Dashboard" },
+        { href: "/accountant/inbox" as Route, label: "Inbox" },
+        { href: "/scan" as Route, label: "Scan Bill" },
+        { href: "/sales" as Route, label: "Sales" },
+        { href: "/purchases" as Route, label: "Purchases" },
+        { href: "/banking" as Route, label: "Banking" },
+        { href: "/month-end" as Route, label: "Month-End" },
+        { href: "/accountant/audit" as Route, label: "Audit log" }
       ];
     default:
       return publicLinks;

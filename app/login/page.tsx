@@ -3,6 +3,7 @@
 import { signIn } from "next-auth/react";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import type { Route } from "next";
 import { DEMO_ACCOUNTS, portalHomePath, type AppPortal } from "@/lib/permissions/constants";
 
 export default function LoginPage() {
@@ -29,7 +30,7 @@ export default function LoginPage() {
     }
     const me = await fetch("/api/auth/session").then((r) => r.json());
     const portal = (me?.user?.portal as AppPortal) ?? "accountant";
-    router.push(portalHomePath(portal));
+    router.push(portalHomePath(portal) as Route);
   }
 
   async function onSubmit(e: React.FormEvent) {

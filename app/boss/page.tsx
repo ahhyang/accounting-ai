@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useSession } from "next-auth/react";
 import Link from "next/link";
+import type { Route } from "next";
 
 type FirmData = {
   company: { name: string };
@@ -121,11 +122,11 @@ export default function BossPortalPage() {
       )}
 
       <section className="card links">
-        <Link href="/manager">Manager close →</Link>
-        <Link href="/accountant">Accountant →</Link>
-        <Link href="/tax">Tax →</Link>
-        <Link href="/auditor">Audit →</Link>
-        <Link href="/client">Client portal →</Link>
+        <Link href={"/manager" as Route}>Manager close →</Link>
+        <Link href={"/accountant" as Route}>Accountant →</Link>
+        <Link href={"/tax" as Route}>Tax →</Link>
+        <Link href={"/auditor" as Route}>Audit →</Link>
+        <Link href={"/client" as Route}>Client portal →</Link>
       </section>
     </main>
   );

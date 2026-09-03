@@ -9,7 +9,7 @@ export async function getFirmOverview(companyId: string) {
     where: { id: companyId },
     include: {
       periods: { orderBy: { startDate: "desc" }, take: 3 },
-      users: { include: { user: true, role: true } }
+      memberships: { include: { user: true, role: true } }
     }
   });
   if (!company) throw new Error("Company not found.");
@@ -45,9 +45,9 @@ export async function getFirmOverview(companyId: string) {
   const monthEndScore = monthEnd ? calculateCompletionScore(monthEnd.tasks) : 0;
 
   return {
-    company: { id: company.id, name: company.name, baseCurrency: company.baseCurrency },
+    company: { id: company.id, name: company.name, baseCurrency: company.functionalCurrency },
     period,
-    team: company.users.map((m) => ({
+    team: company.memberships.map((m) => ({
       name: m.user.name,
       email: m.user.email,
       role: m.role.name,

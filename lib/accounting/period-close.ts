@@ -48,7 +48,7 @@ export async function closeAccountingPeriod(input: {
   if (run) {
     await db.monthEndRun.update({
       where: { id: run.id },
-      data: { status: "COMPLETED", completedAt: new Date() }
+      data: { completionScore: score }
     });
   }
 
