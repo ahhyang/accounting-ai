@@ -1,8 +1,11 @@
 import { db } from "@/lib/db";
 import { callOpenRouter } from "@/lib/ai/openrouter";
+import { BOOKKEEPING_SYSTEM_PROMPT } from "@/lib/ai/extraction";
 import { createAndPostJournal, PostingError } from "@/lib/accounting/posting";
 import { getAccountByCode, nextDocNumber, round2 } from "@/lib/accounting/helpers";
 import { writeAuditEvent } from "@/lib/audit/log";
+import { resolveDocumentFile, isScannableMime } from "@/lib/portal/document-file";
+import { buildScanFallback, extractFromScannedFile } from "@/lib/portal/scan-extract";
 
 function safeParseJson(text: string): Record<string, unknown> | null {
   try {
@@ -17,17 +20,33 @@ export async function runAiOnDocument(documentId: string) {
   const doc = await db.sourceDocument.findUnique({ where: { id: documentId } });
   if (!doc) throw new Error("Document not found.");
 
-  const systemPrompt = `
-You are an AI bookkeeping assistant for Malaysian SME accounting.
-Return JSON only with keys:
-- extracted: { merchant, date, total, tax, paymentMethod, categoryHint, notes }
-- proposal: { description, lines: [{ accountCode, debit, credit, memo }] }
-- riskFlags: string[]
-- confidence: number 0-100
-Use common account codes: 1200 Bank, 1300 AR, 2100 AP, 4100 Sales, 5600 Office Expenses, 5400 Marketing, 5950 Input Tax, 2400 SST Payable.
-`.trim();
+  let parsed: Record<string, unknown> | null = null;
+  let modelOutput = "";
+  let confidence = 55;
 
-  const userPrompt = `
+  const resolvedFile = await resolveDocumentFile(doc);
+
+  if (resolvedFile && isScannableMime(resolvedFile.mimeType)) {
+    try {
+      const { result, modelOutput: output } = await extractFromScannedFile({
+        file: resolvedFile,
+        category: doc.category,
+        clientNote: doc.clientNote ?? undefined,
+        fileName: doc.fileName ?? undefined
+      });
+      parsed = result as unknown as Record<string, unknown>;
+      modelOutput = output;
+      confidence = result.confidence;
+    } catch {
+      parsed = buildScanFallback(doc.category, doc.fileName ?? "document") as unknown as Record<
+        string,
+        unknown
+      >;
+      confidence = Number(parsed.confidence ?? 45);
+      modelOutput = JSON.stringify(parsed);
+    }
+  } else {
+    const userPrompt = `
 Document category: ${doc.category}
 File name: ${doc.fileName ?? "unknown"}
 Client note: ${doc.clientNote ?? "n/a"}
@@ -35,19 +54,15 @@ Existing extracted: ${JSON.stringify(doc.extractedJson ?? {})}
 If details unknown, invent a realistic conservative proposal based on category and set confidence below 70.
 `.trim();
 
-  let modelOutput = "";
-  let parsed: Record<string, unknown> | null = null;
-  let confidence = 55;
-
-  try {
-    modelOutput = await callOpenRouter(systemPrompt, userPrompt);
-    parsed = safeParseJson(modelOutput);
-    if (parsed?.confidence != null) confidence = Number(parsed.confidence);
-  } catch {
-    // Fallback deterministic proposal when OpenRouter is not configured
-    parsed = buildFallbackProposal(doc.category, doc.fileName ?? "document");
-    confidence = Number(parsed.confidence ?? 50);
-    modelOutput = JSON.stringify(parsed);
+    try {
+      modelOutput = await callOpenRouter(BOOKKEEPING_SYSTEM_PROMPT, userPrompt);
+      parsed = safeParseJson(modelOutput);
+      if (parsed?.confidence != null) confidence = Number(parsed.confidence);
+    } catch {
+      parsed = buildFallbackProposal(doc.category, doc.fileName ?? "document");
+      confidence = Number(parsed.confidence ?? 50);
+      modelOutput = JSON.stringify(parsed);
+    }
   }
 
   if (!parsed) {
@@ -77,7 +92,7 @@ If details unknown, invent a realistic conservative proposal based on category a
     data: {
       status: confidence < 50 ? "IN_REVIEW" : status,
       aiConfidence: confidence,
-      extractedJson: (parsed.extracted as object) ?? parsed
+      extractedJson: parsed as object
     }
   });
 
@@ -85,60 +100,7 @@ If details unknown, invent a realistic conservative proposal based on category a
 }
 
 function buildFallbackProposal(category: string, fileName: string) {
-  if (category === "SALES") {
-    return {
-      extracted: {
-        merchant: "Customer",
-        date: new Date().toISOString().slice(0, 10),
-        total: 1000,
-        tax: 0,
-        notes: `Fallback from ${fileName}`
-      },
-      proposal: {
-        description: `Sales from ${fileName}`,
-        lines: [
-          { accountCode: "1300", debit: 1000, credit: 0, memo: "AR" },
-          { accountCode: "4100", debit: 0, credit: 1000, memo: "Sales" }
-        ]
-      },
-      riskFlags: ["AI unavailable — fallback proposal"],
-      confidence: 50
-    };
-  }
-
-  if (category === "BANK") {
-    return {
-      extracted: { merchant: "Bank", date: new Date().toISOString().slice(0, 10), total: 0 },
-      proposal: {
-        description: `Bank statement review ${fileName}`,
-        lines: [
-          { accountCode: "1200", debit: 1, credit: 0, memo: "Placeholder" },
-          { accountCode: "1200", debit: 0, credit: 1, memo: "Placeholder" }
-        ]
-      },
-      riskFlags: ["Bank statement needs manual matching"],
-      confidence: 40
-    };
-  }
-
-  return {
-    extracted: {
-      merchant: "Supplier",
-      date: new Date().toISOString().slice(0, 10),
-      total: 100,
-      tax: 0,
-      notes: `Fallback from ${fileName}`
-    },
-    proposal: {
-      description: `Expense from ${fileName}`,
-      lines: [
-        { accountCode: "5600", debit: 100, credit: 0, memo: "Expense" },
-        { accountCode: "1200", debit: 0, credit: 100, memo: "Bank" }
-      ]
-    },
-    riskFlags: ["AI unavailable — fallback proposal"],
-    confidence: 50
-  };
+  return buildScanFallback(category, fileName) as unknown as Record<string, unknown>;
 }
 
 export async function approveSuggestionAndPost(input: {

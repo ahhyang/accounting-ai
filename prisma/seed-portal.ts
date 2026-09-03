@@ -1,20 +1,40 @@
 /**
- * Seed portal users (client + accountant) on Demo Company.
+ * Seed portal users for all firm roles on Demo Company.
  * Run: npx tsx prisma/seed-portal.ts
  */
 import bcrypt from "bcryptjs";
 import { PrismaClient } from "@prisma/client";
-import { ROLE_PERMISSION_MAP, SYSTEM_ROLES } from "../lib/permissions/constants";
+import {
+  DEMO_ACCOUNTS,
+  ROLE_PERMISSION_MAP,
+  SYSTEM_ROLES
+} from "../lib/permissions/constants";
 import { ensureMonthChecklist } from "../lib/portal/documents";
 
 const db = new PrismaClient();
 
 async function ensureRole(companyId: string, roleName: string) {
   const permissions = ROLE_PERMISSION_MAP[roleName] ?? ["VIEW", "CREATE"];
-  return db.role.upsert({
+  const existing = await db.role.findUnique({
     where: { companyId_name: { companyId, name: roleName } },
-    update: {},
-    create: {
+    include: { permissions: true }
+  });
+
+  if (existing) {
+    // Refresh permissions so Manager gets CLOSE_PERIOD etc.
+    await db.rolePermission.deleteMany({ where: { roleId: existing.id } });
+    await db.rolePermission.createMany({
+      data: permissions.map((action) => ({
+        roleId: existing.id,
+        action,
+        resource: "*"
+      }))
+    });
+    return existing;
+  }
+
+  return db.role.create({
+    data: {
       companyId,
       name: roleName,
       isSystem: true,
@@ -70,31 +90,44 @@ async function main() {
     throw new Error("Demo company missing. Run npm run db:seed first.");
   }
 
-  // Ensure client roles exist for all ROLE_PERMISSION_MAP keys
   for (const roleName of Object.keys(ROLE_PERMISSION_MAP)) {
     await ensureRole(company.id, roleName);
   }
 
-  const client = await upsertUserWithRole({
-    email: "client@demo.my",
-    name: "Demo Client Owner",
-    password: "demo1234",
-    companyId: company.id,
-    roleName: SYSTEM_ROLES.CLIENT_OWNER
+  // Ensure SST settings exist for tax portal
+  await db.taxSettings.upsert({
+    where: { companyId: company.id },
+    update: { sstRegistered: true, sstNumber: "W10-1234-56789012", defaultTaxCode: "SST-6%" },
+    create: {
+      companyId: company.id,
+      sstRegistered: true,
+      sstNumber: "W10-1234-56789012",
+      defaultTaxCode: "SST-6%"
+    }
   });
 
-  const accountant = await upsertUserWithRole({
-    email: "accountant@demo.my",
-    name: "Demo Accountant",
+  const created: string[] = [];
+
+  for (const acc of DEMO_ACCOUNTS) {
+    const user = await upsertUserWithRole({
+      email: acc.email,
+      name: `Demo ${acc.label}`,
+      password: acc.password,
+      companyId: company.id,
+      roleName: acc.roleName,
+      isOwner: acc.roleName === SYSTEM_ROLES.OWNER
+    });
+    created.push(`${acc.label}: ${user.email} / ${acc.password} → /${acc.portal === "audit" ? "auditor" : acc.portal}`);
+  }
+
+  // Keep legacy owner@demo.my as alias for boss
+  await upsertUserWithRole({
+    email: "owner@demo.my",
+    name: "Demo Owner (Boss)",
     password: "demo1234",
     companyId: company.id,
-    roleName: SYSTEM_ROLES.ACCOUNTANT
-  });
-
-  // Also set password on original owner if exists
-  await db.user.updateMany({
-    where: { email: "owner@demo.my" },
-    data: { passwordHash: await bcrypt.hash("demo1234", 10) }
+    roleName: SYSTEM_ROLES.OWNER,
+    isOwner: true
   });
 
   const period = company.periods[0];
@@ -102,10 +135,10 @@ async function main() {
     await ensureMonthChecklist(company.id, period.id);
   }
 
-  console.log("Portal users ready.");
+  console.log("Portal users ready for Malaysian firm roles.");
   console.log(`Company: ${company.id}`);
-  console.log(`Client: ${client.email} / demo1234`);
-  console.log(`Accountant: ${accountant.email} / demo1234`);
+  created.forEach((line) => console.log(line));
+  console.log("Also: owner@demo.my / demo1234 (Boss)");
 }
 
 main()

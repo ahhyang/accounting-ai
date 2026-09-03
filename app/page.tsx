@@ -1,13 +1,23 @@
 import Link from "next/link";
 
 const moduleMap = [
+  "Scan Bill / Receipt (camera, OCR, Excel export)",
   "Client Portal (guided uploads)",
   "Accountant Inbox (AI approve / manual)",
-  "Sales / AR",
-  "Purchases / AP",
-  "Banking & Reconciliation",
-  "Month-End + Audit Trail",
-  "Client Monthly Reports"
+  "Tax pack (SST input/output)",
+  "Audit readiness (trial balance + exceptions)",
+  "Manager month-end close",
+  "Boss / Partner firm oversight",
+  "Sales / AR · Purchases / AP · Banking"
+];
+
+const demos = [
+  { role: "Client", email: "client@demo.my" },
+  { role: "Accountant", email: "accountant@demo.my" },
+  { role: "Tax", email: "tax@demo.my" },
+  { role: "Audit", email: "audit@demo.my" },
+  { role: "Manager", email: "manager@demo.my" },
+  { role: "Boss", email: "boss@demo.my" }
 ];
 
 export default function HomePage() {
@@ -16,27 +26,28 @@ export default function HomePage() {
       <section className="card">
         <h1>AI Finance OS</h1>
         <p className="muted">
-          Clients upload with clear instructions. AI sorts and proposes journals. Accountants approve
-          or enter manually. Both sides get reports and a full audit trail.
+          Built for Malaysian SME accounting firms: Client uploads → Accountant books → Tax pack →
+          Audit readiness → Manager close → Boss oversight.
         </p>
         <div className="row">
           <Link className="btn" href="/login">
             Sign in
           </Link>
-          <Link className="btn secondary" href="/client">
-            Client Portal
-          </Link>
-          <Link className="btn secondary" href="/accountant">
-            Accountant Workspace
+          <Link className="btn secondary" href="/scan">
+            Scan Bill
           </Link>
         </div>
       </section>
 
       <section className="card">
         <h2>Demo logins</h2>
+        <p className="muted">Password for all accounts: demo1234</p>
         <ul>
-          <li>Client: client@demo.my / demo1234</li>
-          <li>Accountant: accountant@demo.my / demo1234</li>
+          {demos.map((d) => (
+            <li key={d.email}>
+              {d.role}: {d.email}
+            </li>
+          ))}
         </ul>
       </section>
 

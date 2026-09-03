@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useSearchParams } from "next/navigation";
 
 type Supplier = { id: string; name: string };
 type Bill = {
@@ -12,7 +13,8 @@ type Bill = {
 };
 
 export default function PurchasesPage() {
-  const [companyId, setCompanyId] = useState("");
+  const searchParams = useSearchParams();
+  const [companyId, setCompanyId] = useState(searchParams.get("companyId") || "");
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [bills, setBills] = useState<Bill[]>([]);
   const [aging, setAging] = useState<Array<{ billNumber: string; outstanding: number; bucket: string; supplier: { name: string } }>>([]);
@@ -110,6 +112,15 @@ export default function PurchasesPage() {
         <div className="row">
           <input placeholder="Company ID" value={companyId} onChange={(e) => setCompanyId(e.target.value)} />
           <button type="button" className="btn" onClick={loadAll}>Load AP</button>
+          {companyId && (
+            <a
+              className="btn secondary"
+              href={`/api/companies/${companyId}/export/bills?format=xlsx`}
+              style={{ display: "inline-flex", alignItems: "center" }}
+            >
+              Export bills to Excel
+            </a>
+          )}
         </div>
         {message && <p className="message">{message}</p>}
       </section>

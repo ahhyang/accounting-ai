@@ -4,7 +4,7 @@ import type { PermissionAction } from "@prisma/client";
 import { authOptions } from "@/lib/auth/options";
 import { db } from "@/lib/db";
 import { userHasPermission } from "@/lib/permissions/check";
-import { isClientRole } from "@/lib/permissions/constants";
+import { isClientRole, type AppPortal } from "@/lib/permissions/constants";
 
 export async function getSession() {
   return getServerSession(authOptions);
@@ -20,7 +20,7 @@ export async function requireSession() {
 
 export async function requireCompanyAccess(
   companyId: string,
-  options?: { permission?: PermissionAction; portal?: "client" | "accountant" }
+  options?: { permission?: PermissionAction; portal?: AppPortal | "staff" }
 ) {
   const result = await requireSession();
   if (!result.ok) return result;
@@ -40,10 +40,14 @@ export async function requireCompanyAccess(
     };
   }
 
-  if (options?.portal === "accountant" && isClientRole(membership.role.name)) {
+  // "accountant" or "staff" = any non-client firm role
+  if (
+    (options?.portal === "accountant" || options?.portal === "staff") &&
+    isClientRole(membership.role.name)
+  ) {
     return {
       ok: false as const,
-      error: NextResponse.json({ ok: false, error: "Accountant access required." }, { status: 403 })
+      error: NextResponse.json({ ok: false, error: "Firm staff access required." }, { status: 403 })
     };
   }
 

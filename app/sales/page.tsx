@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useSearchParams } from "next/navigation";
 
 type Customer = { id: string; name: string; outstanding?: number };
 type Invoice = {
@@ -12,7 +13,8 @@ type Invoice = {
 };
 
 export default function SalesPage() {
-  const [companyId, setCompanyId] = useState("");
+  const searchParams = useSearchParams();
+  const [companyId, setCompanyId] = useState(searchParams.get("companyId") || "");
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [aging, setAging] = useState<Array<{ invoiceNumber: string; outstanding: number; bucket: string; customer: { name: string } }>>([]);

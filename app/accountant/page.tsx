@@ -25,7 +25,8 @@ export default function AccountantDashboard() {
       <section className="card">
         <h1>Accountant workspace</h1>
         <p className="muted">
-          Documents arrive pre-sorted. Approve AI proposals when confident, or enter manually.
+          Full-set bookkeeping for Malaysian SME clients: review AI proposals, post AR/AP, bank
+          reconcile. Tax / Audit / Manager / Boss have their own portals after you.
         </p>
       </section>
       <section className="grid metrics">

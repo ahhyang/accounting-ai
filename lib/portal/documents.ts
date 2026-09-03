@@ -75,14 +75,11 @@ export async function createUploadedDocument(input: {
       type: categoryToSourceType(input.category),
       status: "UPLOADED",
       fileName: input.file.name,
-      fileUrl: stored.fileUrl.startsWith("data:") ? null : stored.fileUrl,
+      fileUrl: stored.fileUrl,
       storageKey: stored.storageKey,
       mimeType: input.file.type || null,
       uploadedByUserId: input.uploadedByUserId,
-      clientNote: input.clientNote,
-      extractedJson: stored.fileUrl.startsWith("data:")
-        ? { previewStored: true, size: input.file.size }
-        : undefined
+      clientNote: input.clientNote
     }
   });
 

@@ -2,7 +2,11 @@ import type { NextAuthOptions } from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
 import bcrypt from "bcryptjs";
 import { db } from "@/lib/db";
-import { isAccountantRole, isClientRole } from "@/lib/permissions/constants";
+import {
+  getPortalForRole,
+  isAccountantRole,
+  isClientRole
+} from "@/lib/permissions/constants";
 
 export const authOptions: NextAuthOptions = {
   session: { strategy: "jwt" },
@@ -63,7 +67,7 @@ export const authOptions: NextAuthOptions = {
         token.companyName = u.companyName;
         token.roleName = u.roleName;
         token.isOwner = u.isOwner;
-        token.portal = isClientRole(u.roleName) ? "client" : "accountant";
+        token.portal = getPortalForRole(u.roleName);
       }
 
       if (trigger === "update" && session?.companyId) {
@@ -81,7 +85,7 @@ export const authOptions: NextAuthOptions = {
           token.companyName = membership.company.name;
           token.roleName = membership.role.name;
           token.isOwner = membership.isOwner;
-          token.portal = isClientRole(membership.role.name) ? "client" : "accountant";
+          token.portal = getPortalForRole(membership.role.name);
         }
       }
 
@@ -94,7 +98,7 @@ export const authOptions: NextAuthOptions = {
         session.user.companyName = token.companyName as string;
         session.user.roleName = token.roleName as string;
         session.user.isOwner = Boolean(token.isOwner);
-        session.user.portal = (token.portal as "client" | "accountant") ?? "accountant";
+        session.user.portal = getPortalForRole(String(token.roleName ?? "Accountant"));
         session.user.isClient = isClientRole(String(token.roleName));
         session.user.isAccountant = isAccountantRole(String(token.roleName));
       }

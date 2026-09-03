@@ -1,6 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useSession } from "next-auth/react";
+import { useSearchParams } from "next/navigation";
 
 type MonthEndTask = {
   id: string;
@@ -19,9 +21,26 @@ type MonthEndResponse = {
 };
 
 export default function MonthEndPage() {
-  const [companyId, setCompanyId] = useState("");
+  const { data: session } = useSession();
+  const searchParams = useSearchParams();
+  const [companyId, setCompanyId] = useState(
+    searchParams.get("companyId") || session?.user?.companyId || ""
+  );
   const [data, setData] = useState<MonthEndResponse | null>(null);
   const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    if (!companyId && session?.user?.companyId) {
+      setCompanyId(session.user.companyId);
+    }
+  }, [session, companyId]);
+
+  useEffect(() => {
+    if (companyId) {
+      void loadChecklist();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [companyId]);
 
   async function loadChecklist() {
     if (!companyId) return;
@@ -42,7 +61,7 @@ export default function MonthEndPage() {
       body: JSON.stringify({
         taskId,
         status: "COMPLETED",
-        completedBy: "demo-user"
+        completedBy: session?.user?.id ?? "user"
       })
     });
     const json = await res.json();
@@ -61,7 +80,9 @@ export default function MonthEndPage() {
     <main className="container grid">
       <section className="card">
         <h1>Month-End Closing</h1>
-        <p className="muted">Track closing checklist progress with completion scoring.</p>
+        <p className="muted">
+          Malaysian full-set close: bank, AR/AP, tax, TB — then Manager closes the period.
+        </p>
         <div className="row">
           <input
             placeholder="Company ID"
@@ -89,7 +110,9 @@ export default function MonthEndPage() {
             <ul className="checklist">
               {tasks.map((task) => (
                 <li key={task.id} className={task.status === "COMPLETED" ? "done" : ""}>
-                  <span>{task.status === "COMPLETED" ? "✓" : "○"} {task.label}</span>
+                  <span>
+                    {task.status === "COMPLETED" ? "✓" : "○"} {task.label}
+                  </span>
                   {task.status !== "COMPLETED" && (
                     <button type="button" className="btn small" onClick={() => completeTask(task.id)}>
                       Mark done
@@ -102,7 +125,7 @@ export default function MonthEndPage() {
         </>
       )}
 
-      {data && !data.ok && <p className="message error">{data.error}</p>}
+      {data && !data.ok && <p className="message error">{String(data.error)}</p>}
     </main>
   );
 }

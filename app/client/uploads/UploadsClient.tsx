@@ -52,7 +52,7 @@ export default function ClientUploadsPage() {
 
     if (data.ok) {
       setMessage(
-        `Received. AI confidence: ${data.ai?.confidence ?? "n/a"}%. Status moved to accountant review.`
+        `Received. AI confidence: ${data.ai?.confidence ?? data.confidence ?? "n/a"}%. Review at Scan Bill or wait for accountant.`
       );
       setFile(null);
     } else {
@@ -64,7 +64,10 @@ export default function ClientUploadsPage() {
     <main className="container grid">
       <section className="card">
         <h1>Upload documents</h1>
-        <p className="muted">{tip}</p>
+        <p className="muted">
+          {tip}{" "}
+          <a href="/scan">Scan a bill or receipt</a> for instant form fill + Excel export.
+        </p>
         <form className="form grid" onSubmit={onSubmit}>
           <label>
             Category

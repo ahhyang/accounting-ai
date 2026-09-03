@@ -1,5 +1,6 @@
 import "next-auth";
 import "next-auth/jwt";
+import type { AppPortal } from "@/lib/permissions/constants";
 
 declare module "next-auth" {
   interface Session {
@@ -11,7 +12,7 @@ declare module "next-auth" {
       companyName: string;
       roleName: string;
       isOwner: boolean;
-      portal: "client" | "accountant";
+      portal: AppPortal;
       isClient: boolean;
       isAccountant: boolean;
     };
@@ -32,6 +33,6 @@ declare module "next-auth/jwt" {
     companyName?: string;
     roleName?: string;
     isOwner?: boolean;
-    portal?: "client" | "accountant";
+    portal?: AppPortal;
   }
 }
