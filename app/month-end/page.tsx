@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { Suspense, useState, useEffect } from "react";
 import { useSession } from "next-auth/react";
 import { useSearchParams } from "next/navigation";
 
@@ -20,7 +20,7 @@ type MonthEndResponse = {
   error?: string;
 };
 
-export default function MonthEndPage() {
+function MonthEndPageInner() {
   const { data: session } = useSession();
   const searchParams = useSearchParams();
   const [companyId, setCompanyId] = useState(
@@ -127,5 +127,13 @@ export default function MonthEndPage() {
 
       {data && !data.ok && <p className="message error">{String(data.error)}</p>}
     </main>
+  );
+}
+
+export default function MonthEndPage() {
+  return (
+    <Suspense fallback={<main className="container"><p>Loading month-end...</p></main>}>
+      <MonthEndPageInner />
+    </Suspense>
   );
 }

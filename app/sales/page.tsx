@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { Suspense, useState } from "react";
 import { useSearchParams } from "next/navigation";
 
 type Customer = { id: string; name: string; outstanding?: number };
@@ -12,7 +12,7 @@ type Invoice = {
   customer: { name: string };
 };
 
-export default function SalesPage() {
+function SalesPageInner() {
   const searchParams = useSearchParams();
   const [companyId, setCompanyId] = useState(searchParams.get("companyId") || "");
   const [customers, setCustomers] = useState<Customer[]>([]);
@@ -192,5 +192,13 @@ export default function SalesPage() {
         </section>
       )}
     </main>
+  );
+}
+
+export default function SalesPage() {
+  return (
+    <Suspense fallback={<main className="container"><p>Loading sales...</p></main>}>
+      <SalesPageInner />
+    </Suspense>
   );
 }

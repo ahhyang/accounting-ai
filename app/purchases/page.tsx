@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { Suspense, useState, useEffect } from "react";
 import { useSearchParams } from "next/navigation";
 
 type Supplier = { id: string; name: string };
@@ -12,7 +12,7 @@ type Bill = {
   supplier: { name: string };
 };
 
-export default function PurchasesPage() {
+function PurchasesPageInner() {
   const searchParams = useSearchParams();
   const [companyId, setCompanyId] = useState(searchParams.get("companyId") || "");
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
@@ -212,5 +212,13 @@ export default function PurchasesPage() {
         </section>
       )}
     </main>
+  );
+}
+
+export default function PurchasesPage() {
+  return (
+    <Suspense fallback={<main className="container"><p>Loading purchases...</p></main>}>
+      <PurchasesPageInner />
+    </Suspense>
   );
 }
