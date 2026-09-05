@@ -1,3 +1,13 @@
 {
-  "framework": "nextjs"
+  "framework": "nextjs",
+  "functions": {
+    "app/api/client/uploads/route.ts": {
+      "maxDuration": 60,
+      "memory": 1024
+    },
+    "app/api/scan/route.ts": {
+      "maxDuration": 60,
+      "memory": 1024
+    }
+  }
 }

@@ -42,26 +42,36 @@ export default function ClientMessagesPage() {
         <p className="muted">If something is unclear, your accountant will ask here.</p>
       </section>
       <section className="card">
-        <ul className="checklist">
-          {messages.map((m) => (
-            <li key={m.id}>
-              <div>
-                <strong>{m.isFromAccountant ? "Accountant" : "You"} — {m.sender.name}</strong>
-                <div>{m.body}</div>
-                {m.sourceDocument?.fileName && (
-                  <div className="muted">File: {m.sourceDocument.fileName}</div>
-                )}
-              </div>
-              <span className="muted">{new Date(m.createdAt).toLocaleString()}</span>
-            </li>
-          ))}
-        </ul>
+        {messages.length === 0 ? (
+          <p className="muted" style={{ padding: "12px 0" }}>
+            No messages yet. Your accountant will write here if a document needs a clearer copy.
+          </p>
+        ) : (
+          <ul className="checklist">
+            {messages.map((m) => (
+              <li key={m.id}>
+                <div>
+                  <strong>
+                    {m.isFromAccountant ? "Accountant" : "You"} — {m.sender.name}
+                  </strong>
+                  <div>{m.body}</div>
+                  {m.sourceDocument?.fileName && (
+                    <div className="muted">File: {m.sourceDocument.fileName}</div>
+                  )}
+                </div>
+                <span className="muted">{new Date(m.createdAt).toLocaleString()}</span>
+              </li>
+            ))}
+          </ul>
+        )}
         <form className="form grid" onSubmit={send} style={{ marginTop: 16 }}>
           <label>
-            Reply
+            {messages.length === 0 ? "Send a message" : "Reply"}
             <input value={body} onChange={(e) => setBody(e.target.value)} required />
           </label>
-          <button className="btn" type="submit">Send</button>
+          <button className="btn" type="submit">
+            Send
+          </button>
         </form>
       </section>
     </main>

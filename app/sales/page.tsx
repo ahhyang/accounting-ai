@@ -1,7 +1,9 @@
 "use client";
 
-import { Suspense, useState } from "react";
-import { useSearchParams } from "next/navigation";
+import { Suspense, useEffect, useState } from "react";
+import { EmptyState } from "@/app/components/EmptyState";
+import { useCompanyId } from "@/app/components/useCompanyId";
+import { statusLabel } from "@/lib/ux/labels";
 
 type Customer = { id: string; name: string; outstanding?: number };
 type Invoice = {
@@ -13,12 +15,14 @@ type Invoice = {
 };
 
 function SalesPageInner() {
-  const searchParams = useSearchParams();
-  const [companyId, setCompanyId] = useState(searchParams.get("companyId") || "");
+  const { companyId, companyName, ready, loadingSession } = useCompanyId();
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [invoices, setInvoices] = useState<Invoice[]>([]);
-  const [aging, setAging] = useState<Array<{ invoiceNumber: string; outstanding: number; bucket: string; customer: { name: string } }>>([]);
+  const [aging, setAging] = useState<
+    Array<{ invoiceNumber: string; outstanding: number; bucket: string; customer: { name: string } }>
+  >([]);
   const [message, setMessage] = useState("");
+  const [loading, setLoading] = useState(false);
   const [customerForm, setCustomerForm] = useState({ name: "", email: "" });
   const [invoiceForm, setInvoiceForm] = useState({
     customerId: "",
@@ -37,6 +41,7 @@ function SalesPageInner() {
 
   async function loadAll() {
     if (!companyId) return;
+    setLoading(true);
     const [cRes, iRes, aRes] = await Promise.all([
       fetch(`/api/companies/${companyId}/customers`),
       fetch(`/api/companies/${companyId}/invoices`),
@@ -48,7 +53,13 @@ function SalesPageInner() {
     if (c.ok) setCustomers(c.customers);
     if (i.ok) setInvoices(i.invoices);
     if (a.ok) setAging(a.aging);
+    setLoading(false);
   }
+
+  useEffect(() => {
+    if (ready) void loadAll();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ready, companyId]);
 
   async function addCustomer(e: React.FormEvent) {
     e.preventDefault();
@@ -77,11 +88,7 @@ function SalesPageInner() {
       })
     });
     const data = await res.json();
-    setMessage(
-      data.ok
-        ? `Invoice ${data.invoice.invoiceNumber} posted to GL.`
-        : String(data.error)
-    );
+    setMessage(data.ok ? `Invoice ${data.invoice.invoiceNumber} posted.` : String(data.error));
     if (data.ok) await loadAll();
   }
 
@@ -90,93 +97,220 @@ function SalesPageInner() {
     const res = await fetch(`/api/companies/${companyId}/receipts`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        ...receiptForm,
-        amount: Number(receiptForm.amount)
-      })
+      body: JSON.stringify({ ...receiptForm, amount: Number(receiptForm.amount) })
     });
     const data = await res.json();
     setMessage(
       data.ok
-        ? `Receipt ${data.receipt.receiptNumber} posted. Invoice now ${data.invoiceStatus}.`
+        ? `Receipt ${data.receipt.receiptNumber} posted. Invoice now ${statusLabel(data.invoiceStatus)}.`
         : String(data.error)
     );
     if (data.ok) await loadAll();
+  }
+
+  if (loadingSession) {
+    return (
+      <main className="container">
+        <p className="muted">Loading company…</p>
+      </main>
+    );
+  }
+
+  if (!companyId) {
+    return (
+      <main className="container">
+        <EmptyState title="Sign in required" hint="Log in to open Sales for your company." />
+      </main>
+    );
   }
 
   return (
     <main className="container grid">
       <section className="card">
         <h1>Sales / Accounts Receivable</h1>
-        <p className="muted">Customers → invoices → receipts, all posting to the shared GL.</p>
+        <p className="muted">
+          {companyName || "Your company"} — customers, invoices, receipts (auto-posts to GL).
+        </p>
         <div className="row">
-          <input placeholder="Company ID" value={companyId} onChange={(e) => setCompanyId(e.target.value)} />
-          <button type="button" className="btn" onClick={loadAll}>Load AR</button>
+          <button type="button" className="btn secondary" onClick={loadAll} disabled={loading}>
+            {loading ? "Refreshing…" : "Refresh"}
+          </button>
         </div>
         {message && <p className="message">{message}</p>}
       </section>
 
       <section className="card">
-        <h2>Add Customer</h2>
+        <h2>Add customer</h2>
         <form className="form grid" onSubmit={addCustomer}>
-          <label>Name<input required value={customerForm.name} onChange={(e) => setCustomerForm({ ...customerForm, name: e.target.value })} /></label>
-          <label>Email<input value={customerForm.email} onChange={(e) => setCustomerForm({ ...customerForm, email: e.target.value })} /></label>
-          <button className="btn" type="submit">Create Customer</button>
-        </form>
-      </section>
-
-      <section className="card">
-        <h2>Create Invoice</h2>
-        <form className="form grid" onSubmit={addInvoice}>
           <label>
-            Customer
-            <select required value={invoiceForm.customerId} onChange={(e) => setInvoiceForm({ ...invoiceForm, customerId: e.target.value })}>
-              <option value="">Select...</option>
-              {customers.map((c) => (
-                <option key={c.id} value={c.id}>{c.name}</option>
-              ))}
-            </select>
+            Name
+            <input
+              required
+              value={customerForm.name}
+              onChange={(e) => setCustomerForm({ ...customerForm, name: e.target.value })}
+            />
           </label>
-          <label>Invoice date<input type="date" value={invoiceForm.invoiceDate} onChange={(e) => setInvoiceForm({ ...invoiceForm, invoiceDate: e.target.value })} /></label>
-          <label>Due date<input type="date" value={invoiceForm.dueDate} onChange={(e) => setInvoiceForm({ ...invoiceForm, dueDate: e.target.value })} /></label>
-          <label>Subtotal<input value={invoiceForm.subtotal} onChange={(e) => setInvoiceForm({ ...invoiceForm, subtotal: e.target.value })} /></label>
-          <label>Tax<input value={invoiceForm.taxAmount} onChange={(e) => setInvoiceForm({ ...invoiceForm, taxAmount: e.target.value })} /></label>
-          <button className="btn" type="submit">Post Invoice</button>
+          <label>
+            Email
+            <input
+              value={customerForm.email}
+              onChange={(e) => setCustomerForm({ ...customerForm, email: e.target.value })}
+            />
+          </label>
+          <button className="btn" type="submit">
+            Create customer
+          </button>
         </form>
       </section>
 
       <section className="card">
-        <h2>Record Receipt</h2>
+        <h2>Create invoice</h2>
+        {customers.length === 0 ? (
+          <EmptyState title="No customers yet" hint="Create a customer first." />
+        ) : (
+          <form className="form grid" onSubmit={addInvoice}>
+            <label>
+              Customer
+              <select
+                required
+                value={invoiceForm.customerId}
+                onChange={(e) => setInvoiceForm({ ...invoiceForm, customerId: e.target.value })}
+              >
+                <option value="">Select…</option>
+                {customers.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label>
+              Invoice date
+              <input
+                type="date"
+                value={invoiceForm.invoiceDate}
+                onChange={(e) => setInvoiceForm({ ...invoiceForm, invoiceDate: e.target.value })}
+              />
+            </label>
+            <label>
+              Due date
+              <input
+                type="date"
+                value={invoiceForm.dueDate}
+                onChange={(e) => setInvoiceForm({ ...invoiceForm, dueDate: e.target.value })}
+              />
+            </label>
+            <label>
+              Subtotal
+              <input
+                value={invoiceForm.subtotal}
+                onChange={(e) => setInvoiceForm({ ...invoiceForm, subtotal: e.target.value })}
+              />
+            </label>
+            <label>
+              Tax (SST)
+              <input
+                value={invoiceForm.taxAmount}
+                onChange={(e) => setInvoiceForm({ ...invoiceForm, taxAmount: e.target.value })}
+              />
+            </label>
+            <button className="btn" type="submit">
+              Post invoice
+            </button>
+          </form>
+        )}
+      </section>
+
+      <section className="card">
+        <h2>Record receipt</h2>
         <form className="form grid" onSubmit={addReceipt}>
           <label>
             Customer
-            <select required value={receiptForm.customerId} onChange={(e) => setReceiptForm({ ...receiptForm, customerId: e.target.value })}>
-              <option value="">Select...</option>
+            <select
+              required
+              value={receiptForm.customerId}
+              onChange={(e) => setReceiptForm({ ...receiptForm, customerId: e.target.value })}
+            >
+              <option value="">Select…</option>
               {customers.map((c) => (
-                <option key={c.id} value={c.id}>{c.name}</option>
+                <option key={c.id} value={c.id}>
+                  {c.name}
+                </option>
               ))}
             </select>
           </label>
           <label>
             Invoice
-            <select required value={receiptForm.invoiceId} onChange={(e) => setReceiptForm({ ...receiptForm, invoiceId: e.target.value })}>
-              <option value="">Select...</option>
-              {invoices.filter((i) => i.status !== "PAID").map((i) => (
-                <option key={i.id} value={i.id}>{i.invoiceNumber} — RM{Number(i.total).toFixed(2)}</option>
-              ))}
+            <select
+              required
+              value={receiptForm.invoiceId}
+              onChange={(e) => setReceiptForm({ ...receiptForm, invoiceId: e.target.value })}
+            >
+              <option value="">Select…</option>
+              {invoices
+                .filter((i) => i.status !== "PAID")
+                .map((i) => (
+                  <option key={i.id} value={i.id}>
+                    {i.invoiceNumber} — RM{Number(i.total).toFixed(2)} ({statusLabel(i.status)})
+                  </option>
+                ))}
             </select>
           </label>
-          <label>Amount<input required value={receiptForm.amount} onChange={(e) => setReceiptForm({ ...receiptForm, amount: e.target.value })} /></label>
-          <button className="btn" type="submit">Post Receipt</button>
+          <label>
+            Amount
+            <input
+              required
+              value={receiptForm.amount}
+              onChange={(e) => setReceiptForm({ ...receiptForm, amount: e.target.value })}
+            />
+          </label>
+          <button className="btn" type="submit">
+            Post receipt
+          </button>
         </form>
       </section>
 
-      {aging.length > 0 && (
-        <section className="card">
-          <h2>AR Aging</h2>
+      <section className="card">
+        <h2>Invoices</h2>
+        {invoices.length === 0 ? (
+          <EmptyState title="No invoices yet" hint="Create an invoice above." />
+        ) : (
           <table className="table">
             <thead>
-              <tr><th>Customer</th><th>Invoice</th><th>Outstanding</th><th>Bucket</th></tr>
+              <tr>
+                <th>Number</th>
+                <th>Customer</th>
+                <th>Total</th>
+                <th>Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              {invoices.map((i) => (
+                <tr key={i.id}>
+                  <td>{i.invoiceNumber}</td>
+                  <td>{i.customer.name}</td>
+                  <td>RM{Number(i.total).toFixed(2)}</td>
+                  <td>{statusLabel(i.status)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </section>
+
+      <section className="card">
+        <h2>AR aging</h2>
+        {aging.length === 0 ? (
+          <EmptyState title="Nothing outstanding" hint="Open invoices will appear here." />
+        ) : (
+          <table className="table">
+            <thead>
+              <tr>
+                <th>Customer</th>
+                <th>Invoice</th>
+                <th>Outstanding</th>
+                <th>Bucket</th>
+              </tr>
             </thead>
             <tbody>
               {aging.map((row) => (
@@ -189,15 +323,21 @@ function SalesPageInner() {
               ))}
             </tbody>
           </table>
-        </section>
-      )}
+        )}
+      </section>
     </main>
   );
 }
 
 export default function SalesPage() {
   return (
-    <Suspense fallback={<main className="container"><p>Loading sales...</p></main>}>
+    <Suspense
+      fallback={
+        <main className="container">
+          <p>Loading sales…</p>
+        </main>
+      }
+    >
       <SalesPageInner />
     </Suspense>
   );

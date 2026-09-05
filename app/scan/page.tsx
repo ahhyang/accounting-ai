@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
+import { useSession } from "next-auth/react";
 import type { ExtractedBill } from "@/lib/ai/extraction";
 
 type ScanForm = {
@@ -26,12 +27,17 @@ type ScanResult = {
 };
 
 export default function ScanBillPage() {
+  const { data: session } = useSession();
+  const isClient = session?.user?.portal === "client";
+  const canPost = Boolean(session?.user && !isClient);
+
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [companyId, setCompanyId] = useState("");
   const [periodId, setPeriodId] = useState("");
+  const [companyName, setCompanyName] = useState("");
   const [category, setCategory] = useState<"PURCHASE" | "SALES">("PURCHASE");
   const [note, setNote] = useState("");
   const [cameraOn, setCameraOn] = useState(false);
@@ -46,6 +52,7 @@ export default function ScanBillPage() {
   const [posted, setPosted] = useState<{ type: string; number: string; nextStep: string } | null>(
     null
   );
+  const [submitted, setSubmitted] = useState(false);
 
   useEffect(() => {
     fetch("/api/client/checklist")
@@ -54,10 +61,11 @@ export default function ScanBillPage() {
         if (data.ok) {
           setPeriodId(data.period.id);
           setCompanyId(data.company.id);
+          setCompanyName(data.company.name ?? "");
         }
       })
       .catch(() => {
-        setError("Log in as a client or accountant to scan bills.");
+        setError("Log in to scan bills.");
       });
   }, []);
 
@@ -133,6 +141,7 @@ export default function ScanBillPage() {
     setError("");
     setMessage("");
     setPosted(null);
+    setSubmitted(false);
 
     const body = new FormData();
     body.set("companyId", companyId);
@@ -237,8 +246,11 @@ export default function ScanBillPage() {
         nextStep: data.nextStep
       });
       setMessage(
-        `${data.result.type === "purchase" ? "Purchase bill" : "Sales invoice"} ${data.result.number} posted to the ledger.`
+        `${data.result.type === "purchase" ? "Purchase bill" : "Sales invoice"} ${data.result.number} posted.`
       );
+    } else if (action === "save_form") {
+      setSubmitted(true);
+      setMessage(isClient ? "Saved and sent to your accountant for review." : "Form saved.");
     } else {
       setMessage("Saved.");
     }
@@ -252,9 +264,11 @@ export default function ScanBillPage() {
       <section className="card">
         <h1>Scan bill or receipt</h1>
         <p className="muted">
-          Take a photo or upload a receipt/bill — printed or handwritten. AI reads the image,
-          fills a form you can edit, exports to Excel, then posts to purchases or sales.{" "}
-          <Link href="/login">Log in</Link> required.
+          {companyName ? `${companyName} — ` : ""}
+          Photo or upload a receipt (printed or handwritten). AI fills the form.
+          {isClient
+            ? " Send it to your accountant — they post the books."
+            : " Export Excel or post to Sales / Purchases."}
         </p>
       </section>
 
@@ -267,14 +281,6 @@ export default function ScanBillPage() {
               <option value="PURCHASE">Purchase bill / expense receipt</option>
               <option value="SALES">Sales invoice / customer receipt</option>
             </select>
-          </label>
-          <label>
-            Company ID
-            <input value={companyId} onChange={(e) => setCompanyId(e.target.value)} placeholder="Auto-filled when logged in as client" />
-          </label>
-          <label>
-            Period ID
-            <input value={periodId} onChange={(e) => setPeriodId(e.target.value)} placeholder="Auto-filled from checklist" />
           </label>
           <label>
             Note (optional)
@@ -436,23 +442,31 @@ export default function ScanBillPage() {
 
       {form && result && (
         <section className="card">
-          <h2>3. Export or proceed to accounting</h2>
+          <h2>3. Next step</h2>
           <div className="row" style={{ flexWrap: "wrap", gap: 8 }}>
-            <button type="button" className="btn secondary" disabled={loading} onClick={() => runAction("save_form")}>
-              Save form
+            <button type="button" className="btn" disabled={loading} onClick={() => runAction("save_form")}>
+              {isClient ? "Send to accountant" : "Save form"}
             </button>
             <button type="button" className="btn secondary" disabled={loading} onClick={() => runAction("export_excel")}>
               Export to Excel
             </button>
-            <button type="button" className="btn" disabled={loading} onClick={() => runAction("post_to_accounting")}>
-              Post to {category === "SALES" ? "Sales (AR)" : "Purchases (AP)"}
-            </button>
+            {canPost && (
+              <button type="button" className="btn" disabled={loading} onClick={() => runAction("post_to_accounting")}>
+                Post to {category === "SALES" ? "Sales (AR)" : "Purchases (AP)"}
+              </button>
+            )}
           </div>
 
-          {posted && (
+          {submitted && isClient && (
+            <p className="message" style={{ marginTop: 12 }}>
+              Sent. <Link href="/client">Back to checklist</Link>
+            </p>
+          )}
+
+          {posted && canPost && (
             <div style={{ marginTop: 12 }}>
               <p className="message">
-                Posted {posted.type} {posted.number}. Continue with payments, banking, or month-end.
+                Posted {posted.type} {posted.number}.
               </p>
               <div className="row" style={{ gap: 8 }}>
                 <a className="btn" href={posted.nextStep}>
@@ -460,9 +474,6 @@ export default function ScanBillPage() {
                 </a>
                 <Link className="btn secondary" href="/banking">
                   Banking
-                </Link>
-                <Link className="btn secondary" href="/month-end">
-                  Month-end
                 </Link>
               </div>
             </div>

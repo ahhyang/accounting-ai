@@ -46,8 +46,11 @@ export default function AccountantDashboard() {
       <section className="card links">
         <Link href="/accountant/inbox">Open sorted inbox →</Link>
         <Link href="/accountant/clients">Manage clients →</Link>
-        <Link href="/accountant/audit">Audit trail →</Link>
+        <Link href="/sales">Sales (AR) →</Link>
+        <Link href="/purchases">Purchases (AP) →</Link>
+        <Link href="/banking">Banking →</Link>
         <Link href="/month-end">Month-end checklist →</Link>
+        <Link href="/accountant/audit">Activity log →</Link>
       </section>
     </main>
   );

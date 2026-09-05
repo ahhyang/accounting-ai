@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Nav } from "./components/Nav";
+import { AppChrome } from "./components/AppChrome";
 import { Providers } from "./components/Providers";
 import "./globals.css";
 
@@ -14,6 +15,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body>
         <Providers>
           <Nav />
+          <AppChrome />
           {children}
         </Providers>
       </body>

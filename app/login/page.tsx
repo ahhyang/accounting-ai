@@ -38,12 +38,18 @@ export default function LoginPage() {
     await loginAs(email, password);
   }
 
+  function fillAccount(loginEmail: string, loginPassword: string) {
+    setEmail(loginEmail);
+    setPassword(loginPassword);
+    setError("");
+  }
+
   return (
-    <main className="container grid" style={{ maxWidth: 640, marginTop: 48 }}>
+    <main className="container grid" style={{ maxWidth: 720, marginTop: 48 }}>
       <section className="card">
         <h1>Sign in</h1>
         <p className="muted">
-          Malaysian firm roles: Client → Accountant → Tax → Audit → Manager → Boss
+          Demo firm roles: Client → Accountant → Tax → Audit → Manager → Boss
         </p>
         <form className="form grid" onSubmit={onSubmit}>
           <label>
@@ -67,26 +73,62 @@ export default function LoginPage() {
       </section>
 
       <section className="card">
-        <h2>Demo logins</h2>
-        <p className="muted">Password for all: demo1234</p>
-        <div className="grid" style={{ gap: 10 }}>
+        <h2>Demo accounts</h2>
+        <p className="muted" style={{ marginBottom: 12 }}>
+          Password for every account: <strong style={{ color: "#eef2ff" }}>demo1234</strong>
+        </p>
+        <table className="table">
+          <thead>
+            <tr>
+              <th>Role</th>
+              <th>Email</th>
+              <th>What they do</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+            {DEMO_ACCOUNTS.map((acc) => (
+              <tr key={acc.email}>
+                <td>
+                  <strong>{acc.label}</strong>
+                </td>
+                <td>
+                  <code style={{ fontSize: 13 }}>{acc.email}</code>
+                </td>
+                <td className="muted" style={{ fontSize: 13 }}>
+                  {acc.blurb}
+                </td>
+                <td>
+                  <div className="row" style={{ gap: 6, flexWrap: "nowrap" }}>
+                    <button
+                      type="button"
+                      className="btn small secondary"
+                      disabled={loading}
+                      onClick={() => fillAccount(acc.email, acc.password)}
+                    >
+                      Fill
+                    </button>
+                    <button
+                      type="button"
+                      className="btn small"
+                      disabled={loading}
+                      onClick={() => loginAs(acc.email, acc.password)}
+                    >
+                      Login
+                    </button>
+                  </div>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+        <ul className="muted" style={{ marginTop: 16, fontSize: 13, lineHeight: 1.7 }}>
           {DEMO_ACCOUNTS.map((acc) => (
-            <button
-              key={acc.email}
-              type="button"
-              className="btn secondary"
-              style={{ textAlign: "left" }}
-              disabled={loading}
-              onClick={() => loginAs(acc.email, acc.password)}
-            >
-              <strong>{acc.label}</strong> — {acc.email}
-              <br />
-              <span className="muted" style={{ fontWeight: 400, fontSize: 13 }}>
-                {acc.blurb}
-              </span>
-            </button>
+            <li key={`list-${acc.email}`}>
+              <strong>{acc.label}:</strong> {acc.email} / demo1234
+            </li>
           ))}
-        </div>
+        </ul>
       </section>
     </main>
   );

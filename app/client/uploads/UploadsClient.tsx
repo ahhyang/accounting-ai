@@ -3,6 +3,12 @@
 import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 
+function formatBytes(n: number) {
+  if (n < 1024) return `${n} B`;
+  if (n < 1024 * 1024) return `${(n / 1024).toFixed(1)} KB`;
+  return `${(n / (1024 * 1024)).toFixed(1)} MB`;
+}
+
 export default function ClientUploadsPage() {
   const params = useSearchParams();
   const [periodId, setPeriodId] = useState("");
@@ -10,7 +16,7 @@ export default function ClientUploadsPage() {
   const [category, setCategory] = useState(params.get("category") || "PURCHASE");
   const [requestId, setRequestId] = useState(params.get("requestId") || "");
   const [note, setNote] = useState("");
-  const [file, setFile] = useState<File | null>(null);
+  const [files, setFiles] = useState<File[]>([]);
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(false);
 
@@ -26,15 +32,17 @@ export default function ClientUploadsPage() {
   }, []);
 
   const tip = useMemo(() => {
-    if (category === "BANK") return "PDF/CSV bank statement, all pages.";
-    if (category === "SALES") return "Customer invoices or sales receipts.";
-    if (category === "PURCHASE") return "Supplier bills, Grab/receipts photos OK.";
-    return "Upload the clearest file you have.";
+    if (category === "BANK") return "Bank statements — PDF, CSV, Excel, ZIP, photos…";
+    if (category === "SALES") return "Customer invoices / sales receipts — any format.";
+    if (category === "PURCHASE") return "Supplier bills & receipts — PDF, photos, Excel, Word…";
+    return "Any document your accountant needs.";
   }, [category]);
+
+  const totalSize = useMemo(() => files.reduce((s, f) => s + f.size, 0), [files]);
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!file || !companyId || !periodId) return;
+    if (!files.length || !companyId || !periodId) return;
     setLoading(true);
     setMessage("");
 
@@ -44,17 +52,22 @@ export default function ClientUploadsPage() {
     form.set("category", category);
     if (requestId) form.set("requestId", requestId);
     if (note) form.set("clientNote", note);
-    form.set("file", file);
+    for (const f of files) {
+      form.append("files", f);
+    }
 
     const res = await fetch("/api/client/uploads", { method: "POST", body: form });
     const data = await res.json();
     setLoading(false);
 
     if (data.ok) {
+      const count = data.count ?? 1;
       setMessage(
-        `Received. AI confidence: ${data.ai?.confidence ?? data.confidence ?? "n/a"}%. Review at Scan Bill or wait for accountant.`
+        count > 1
+          ? `Received ${count} files. Accountant will review them.`
+          : `Received “${files[0]?.name}”. AI confidence: ${data.ai?.confidence ?? "n/a"}%.`
       );
-      setFile(null);
+      setFiles([]);
     } else {
       setMessage(String(data.error));
     }
@@ -65,8 +78,9 @@ export default function ClientUploadsPage() {
       <section className="card">
         <h1>Upload documents</h1>
         <p className="muted">
-          {tip}{" "}
-          <a href="/scan">Scan a bill or receipt</a> for instant form fill + Excel export.
+          {tip} Upload <strong>any file type</strong> and <strong>any size</strong> (PDF, Excel, Word,
+          images, CSV, ZIP, etc.). Multiple files OK.{" "}
+          <a href="/scan">Scan a bill</a> if you want instant form fill.
         </p>
         <form className="form grid" onSubmit={onSubmit}>
           <label>
@@ -81,23 +95,47 @@ export default function ClientUploadsPage() {
             </select>
           </label>
           <label>
-            Checklist item ID (optional)
-            <input value={requestId} onChange={(e) => setRequestId(e.target.value)} />
-          </label>
-          <label>
             Note to accountant
             <input
               value={note}
               onChange={(e) => setNote(e.target.value)}
-              placeholder="e.g. Maybank May statement"
+              placeholder="e.g. Maybank May statement + Excel export"
             />
           </label>
+          {requestId ? (
+            <p className="muted" style={{ fontSize: 13 }}>
+              Linked to checklist item (auto).
+            </p>
+          ) : null}
           <label>
-            File
-            <input type="file" required onChange={(e) => setFile(e.target.files?.[0] ?? null)} />
+            Files (any type, multiple allowed)
+            <input
+              type="file"
+              multiple
+              required={files.length === 0}
+              onChange={(e) => setFiles(Array.from(e.target.files ?? []))}
+            />
           </label>
-          <button className="btn" type="submit" disabled={loading}>
-            {loading ? "Uploading..." : "Upload & send to AI"}
+          {files.length > 0 && (
+            <div className="muted" style={{ fontSize: 13 }}>
+              <p>
+                Selected {files.length} file{files.length === 1 ? "" : "s"} · {formatBytes(totalSize)}{" "}
+                total
+              </p>
+              <ul>
+                {files.map((f) => (
+                  <li key={`${f.name}-${f.size}-${f.lastModified}`}>
+                    {f.name} · {formatBytes(f.size)}
+                    {f.type ? ` · ${f.type}` : " · unknown type"}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+          <button className="btn" type="submit" disabled={loading || files.length === 0}>
+            {loading
+              ? `Uploading ${files.length} file${files.length === 1 ? "" : "s"}...`
+              : `Upload ${files.length || ""} file${files.length === 1 ? "" : "s"} & send to accountant`}
           </button>
         </form>
         {message && <p className="message">{message}</p>}

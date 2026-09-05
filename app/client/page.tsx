@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import type { Route } from "next";
 
 type ChecklistItem = {
   id: string;
@@ -66,6 +67,9 @@ export default function ClientHomePage() {
           </p>
           <Link className="btn" href={`/client/uploads?requestId=${item.id}&category=${item.category}`}>
             Upload for this step
+          </Link>{" "}
+          <Link className="btn secondary" href={"/client/documents" as Route}>
+            Documents hub
           </Link>
         </section>
       ))}

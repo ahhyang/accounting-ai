@@ -33,9 +33,6 @@ export default function HomePage() {
           <Link className="btn" href="/login">
             Sign in
           </Link>
-          <Link className="btn secondary" href="/scan">
-            Scan Bill
-          </Link>
         </div>
       </section>
 
