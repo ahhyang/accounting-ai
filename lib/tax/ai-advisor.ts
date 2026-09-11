@@ -3,6 +3,16 @@ import { round2 } from "@/lib/accounting/helpers";
 import { callOpenRouter } from "@/lib/ai/openrouter";
 import { writeAuditEvent } from "@/lib/audit/log";
 import { getSstTaxPack } from "@/lib/tax/sst-summary";
+import {
+  estimateCompanyTax,
+  planCp204,
+  reviewExpenseDeductibility,
+  DOUBLE_DEDUCTIONS,
+  CAPITAL_ALLOWANCE_RATES,
+  TAX_KNOWLEDGE_TEXT,
+  type TaxBand,
+  type TaxFinding
+} from "@/lib/tax/malaysia-tax";
 
 export type TaxAuditFinding = {
   severity: "high" | "medium" | "low" | "info";
@@ -19,6 +29,30 @@ export type TaxReductionIdea = {
   legalNote: string;
 };
 
+export type MinimumTaxStrategy = {
+  title: string;
+  action: string;
+  legalBasis: string;
+  estimatedSavingRm: number | null;
+  risk: "low" | "medium" | "high";
+};
+
+export type MinimumTaxPlan = {
+  summary: string;
+  targetEstimatedTax: number;
+  strategies: MinimumTaxStrategy[];
+  doubleDeductions: Array<{ title: string; basis: string; how: string }>;
+  capitalAllowanceRates: Array<{ assetClass: string; initialPct: number; annualPct: number }>;
+  disallowanceRisks: TaxFinding[];
+  cp204: {
+    minSafeEstimate: number;
+    recommendedEstimate: number;
+    monthlyInstalment: number;
+    penaltyThreshold: number;
+    notes: string[];
+  };
+};
+
 export type TaxAdviseResult = {
   counted: {
     sstOutput: number;
@@ -29,12 +63,17 @@ export type TaxAdviseResult = {
     estimatedProfit: number;
     estimatedCorporateTax: number;
     corporateTaxRatePct: number;
+    taxBands: TaxBand[];
+    smeRateApplied: boolean;
+    effectiveRatePct: number;
+    cp204SafeEstimate: number;
   };
   audit: {
     score: number;
     findings: TaxAuditFinding[];
   };
   reductionIdeas: TaxReductionIdea[];
+  minimumTaxPlan: MinimumTaxPlan;
   recommendations: string[];
   summary: string;
   disclaimer: string;
@@ -44,19 +83,14 @@ export type TaxAdviseResult = {
 const DISCLAIMER =
   "Advisory only — not tax advice. Confirm with a licensed Malaysian tax agent / LHDN rules before acting.";
 
-/** SME company tax estimate: 17% on first RM150k chargeable income, 24% above (simplified). */
+/** SME company tax estimate (kept for backwards compatibility). */
 export function estimateMsCompanyTax(profit: number): {
   chargeable: number;
   tax: number;
   ratePct: number;
 } {
-  const chargeable = Math.max(0, round2(profit));
-  if (chargeable <= 0) return { chargeable: 0, tax: 0, ratePct: 0 };
-  const band1 = Math.min(chargeable, 150_000);
-  const band2 = Math.max(0, chargeable - 150_000);
-  const tax = round2(band1 * 0.17 + band2 * 0.24);
-  const ratePct = chargeable > 0 ? round2((tax / chargeable) * 100) : 0;
-  return { chargeable, tax, ratePct };
+  const est = estimateCompanyTax({ chargeableIncome: profit });
+  return { chargeable: est.chargeableIncome, tax: est.tax, ratePct: est.effectiveRatePct };
 }
 
 async function buildPlSnapshot(companyId: string, periodId?: string) {
@@ -285,6 +319,7 @@ function fallbackRecommendations(findings: TaxAuditFinding[], ideas: TaxReductio
 function safeParseAdvise(text: string): {
   reductionIdeas?: TaxReductionIdea[];
   recommendations?: string[];
+  minimumTaxPlan?: { strategies?: MinimumTaxStrategy[]; summary?: string };
   summary?: string;
 } | null {
   try {
@@ -292,11 +327,87 @@ function safeParseAdvise(text: string): {
     return JSON.parse(cleaned) as {
       reductionIdeas?: TaxReductionIdea[];
       recommendations?: string[];
+      minimumTaxPlan?: { strategies?: MinimumTaxStrategy[]; summary?: string };
       summary?: string;
     };
   } catch {
     return null;
   }
+}
+
+function normalizeRisk(value: unknown): MinimumTaxStrategy["risk"] {
+  const v = String(value ?? "").toLowerCase();
+  return v === "low" || v === "medium" || v === "high" ? v : "medium";
+}
+
+function fallbackMinimumTaxStrategies(input: {
+  expenseByCode: Record<string, number>;
+  marginalRatePct: number;
+  disallowanceRisks: TaxFinding[];
+}): MinimumTaxStrategy[] {
+  const strategies: MinimumTaxStrategy[] = [];
+  const rate = input.marginalRatePct > 0 ? input.marginalRatePct / 100 : 0.17;
+
+  for (const dd of DOUBLE_DEDUCTIONS.slice(0, 3)) {
+    strategies.push({
+      title: dd.title,
+      action: `Claim double deduction — ${dd.how}`,
+      legalBasis: dd.basis,
+      estimatedSavingRm: null,
+      risk: "low"
+    });
+  }
+
+  const dep = round2(input.expenseByCode["5900"] ?? 0);
+  if (dep > 0) {
+    strategies.push({
+      title: "Swap depreciation add-back for capital allowances",
+      action: `RM${dep.toFixed(2)} of accounting depreciation is added back. Claim capital allowances (P&M IA 20% + AA 14%) on qualifying assets to shelter the same profit.`,
+      legalBasis: "Sch 2/3 ITA 1967",
+      estimatedSavingRm: round2(dep * rate),
+      risk: "low"
+    });
+  }
+
+  strategies.push({
+    title: "Split entertainment for maximum deduction",
+    action:
+      "Reclassify client entertainment: 100% for staff and promotional items, 50% for existing customers/suppliers, 0% for potential customers and business associates.",
+    legalBasis: "S39(1)(l) / PR 4/2015",
+    estimatedSavingRm: null,
+    risk: "low"
+  });
+
+  strategies.push({
+    title: "Time the CP204 estimate to keep cash in the business",
+    action:
+      "File CP204 near the penalty-safe floor (~70% of expected tax) and revise via CP204A as profit becomes clearer — avoids the 10% under-estimation penalty without over-paying early.",
+    legalBasis: "s.107C ITA 1967",
+    estimatedSavingRm: null,
+    risk: "medium"
+  });
+
+  strategies.push({
+    title: "Convert CSR spend into deductions",
+    action:
+      "Route approved giving through S44(6) cash donations (up to 10% of aggregate income) and S34(6) social/community expenditure so discretionary spend becomes deductible.",
+    legalBasis: "S44(6), S34(6)",
+    estimatedSavingRm: null,
+    risk: "low"
+  });
+
+  if (input.disallowanceRisks.some((r) => r.severity === "high" || r.severity === "medium")) {
+    strategies.push({
+      title: "Clear add-back risks before year-end",
+      action:
+        "Fix the flagged add-backs (private expenses, capital in opex, WHT defaults, vehicle rental cap) — every ringgit added back is taxed at your marginal rate.",
+      legalBasis: "S39 ITA 1967",
+      estimatedSavingRm: null,
+      risk: "low"
+    });
+  }
+
+  return strategies.slice(0, 6);
 }
 
 /**
@@ -309,7 +420,13 @@ export async function runTaxAdvise(input: {
 }): Promise<TaxAdviseResult> {
   const pack = await getSstTaxPack(input.companyId, input.periodId);
   const pl = await buildPlSnapshot(input.companyId, input.periodId ?? pack.period?.id);
-  const corp = estimateMsCompanyTax(pl.profit);
+  const corp = estimateCompanyTax({ chargeableIncome: pl.profit });
+  const marginalRatePct = corp.bands.length ? corp.bands[corp.bands.length - 1].ratePct : 24;
+  const disallowanceRisks = reviewExpenseDeductibility({
+    expenseByCode: pl.expenseByCode,
+    aggregateIncome: pl.revenue
+  });
+  const cp204 = planCp204({ estimatedTaxPayable: corp.tax });
 
   const periodFilter = pl.period
     ? {
@@ -360,26 +477,48 @@ export async function runTaxAdvise(input: {
   let summary = `SST net ${pack.sst.netPayable >= 0 ? "payable" : "refund"} RM${Math.abs(pack.sst.netPayable).toFixed(2)}; estimated company tax RM${corp.tax.toFixed(2)} on profit RM${pl.profit.toFixed(2)}. Audit score ${score}/100.`;
   let aiUsed = false;
 
-  const systemPrompt = `You are a Malaysian SME tax assistant (SST + company income tax awareness).
+  const minimumTaxPlan: MinimumTaxPlan = {
+    summary: "",
+    targetEstimatedTax: corp.tax,
+    strategies: fallbackMinimumTaxStrategies({
+      expenseByCode: pl.expenseByCode,
+      marginalRatePct,
+      disallowanceRisks
+    }),
+    doubleDeductions: DOUBLE_DEDUCTIONS,
+    capitalAllowanceRates: CAPITAL_ALLOWANCE_RATES,
+    disallowanceRisks,
+    cp204
+  };
+
+  const systemPrompt = `You are a Malaysian corporate tax planner. Minimise tax LEGALLY (no evasion, no hiding income, no fake invoices).
+${TAX_KNOWLEDGE_TEXT}
+
 Return JSON only:
 {
-  "summary": "2-3 sentences",
+  "summary": "2-3 sentences on the tax position",
+  "minimumTaxPlan": {
+    "summary": "how to legally reach the lowest tax for this fact pattern",
+    "strategies": [
+      {
+        "title": string,
+        "action": string,
+        "legalBasis": string,
+        "estimatedSavingRm": number|null,
+        "risk": "low"|"medium"|"high"
+      }
+    ]
+  },
   "reductionIdeas": [
-    {
-      "title": string,
-      "how": string,
-      "estimatedSavingRm": number|null,
-      "risk": "low"|"medium"|"high",
-      "legalNote": string
-    }
+    { "title": string, "how": string, "estimatedSavingRm": number|null, "risk": "low"|"medium"|"high", "legalNote": string }
   ],
   "recommendations": ["actionable steps"]
 }
 Rules:
-- Give 3 to 5 LEGAL tax-efficiency ideas only (no evasion, no hiding income, no fake invoices).
-- Prefer SST input claims, allowable deductions, capital allowances, timing, documentation.
-- Use Malaysian context (LHDN, Customs SST, e-Invoice awareness).
-- estimatedSavingRm must be conservative or null.`;
+- Give 4 to 6 strategies ranked by rupees saved and ease of execution.
+- Ground every strategy in a specific Malaysian provision (S33, S39, Sch 2/3, S34(6), S44(6), s.107C, PU orders).
+- Use the supplied PL, expense codes and audit findings; reference the actual RM amounts.
+- Keep estimatedSavingRm conservative or null.`;
 
   const userPrompt = `
 Company tax pack:
@@ -392,7 +531,17 @@ ${JSON.stringify(
       hasSstNumber: Boolean(pack.settings.sstNumber)
     },
     pl: { revenue: pl.revenue, expenses: pl.expenses, profit: pl.profit },
-    estimatedCorporateTax: corp.tax,
+    expenseByCode: pl.expenseByCode,
+    companyTax: {
+      chargeableIncome: corp.chargeableIncome,
+      tax: corp.tax,
+      effectiveRatePct: corp.effectiveRatePct,
+      bands: corp.bands,
+      smeRateApplied: corp.smeRateApplied,
+      basis: corp.basis
+    },
+    cp204Plan: cp204,
+    disallowanceRisks,
     auditFindings: findings,
     auditScore: score
   },
@@ -424,9 +573,31 @@ ${JSON.stringify(
       if (Array.isArray(parsed.recommendations) && parsed.recommendations.length > 0) {
         recommendations = parsed.recommendations.map(String).slice(0, 8);
       }
+      if (parsed.minimumTaxPlan?.strategies && parsed.minimumTaxPlan.strategies.length >= 3) {
+        minimumTaxPlan.strategies = parsed.minimumTaxPlan.strategies.slice(0, 6).map((s) => ({
+          title: String(s.title ?? "Strategy"),
+          action: String(s.action ?? ""),
+          legalBasis: String(s.legalBasis ?? "Confirm with tax agent."),
+          estimatedSavingRm:
+            s.estimatedSavingRm != null && !Number.isNaN(Number(s.estimatedSavingRm))
+              ? round2(Number(s.estimatedSavingRm))
+              : null,
+          risk: normalizeRisk(s.risk)
+        }));
+      }
+      if (parsed.minimumTaxPlan?.summary) {
+        minimumTaxPlan.summary = String(parsed.minimumTaxPlan.summary);
+      }
     }
   } catch {
     /* keep deterministic fallbacks */
+  }
+
+  if (!minimumTaxPlan.summary) {
+    minimumTaxPlan.summary =
+      `Estimated tax is RM${corp.tax.toFixed(2)} on chargeable income RM${corp.chargeableIncome.toFixed(2)} ` +
+      `(effective ${corp.effectiveRatePct}%). Claim every allowable deduction, capital allowance and double ` +
+      `deduction, and time the CP204 estimate to the penalty-safe floor to legally minimise cash tax.`;
   }
 
   const result: TaxAdviseResult = {
@@ -438,10 +609,15 @@ ${JSON.stringify(
       taxablePurchases: pack.schedules.taxablePurchases.total,
       estimatedProfit: pl.profit,
       estimatedCorporateTax: corp.tax,
-      corporateTaxRatePct: corp.ratePct
+      corporateTaxRatePct: corp.effectiveRatePct,
+      taxBands: corp.bands,
+      smeRateApplied: corp.smeRateApplied,
+      effectiveRatePct: corp.effectiveRatePct,
+      cp204SafeEstimate: cp204.minSafeEstimate
     },
     audit: { score, findings },
     reductionIdeas,
+    minimumTaxPlan,
     recommendations,
     summary,
     disclaimer: DISCLAIMER,

@@ -13,7 +13,8 @@
     "prisma:studio": "prisma studio",
     "db:seed": "tsx prisma/seed.ts",
     "db:seed:mock": "tsx prisma/seed-mock.ts",
-    "db:seed:portal": "tsx prisma/seed-portal.ts"
+    "db:seed:portal": "tsx prisma/seed-portal.ts",
+    "test:tax": "tsx scripts/test-tax.ts"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"

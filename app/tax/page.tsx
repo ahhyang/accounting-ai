@@ -16,6 +16,8 @@ type TaxPack = {
   checklist: Array<{ key: string; label: string; done: boolean }>;
 };
 
+type TaxBand = { label: string; ratePct: number; taxable: number; tax: number };
+
 type TaxAdvise = {
   counted: {
     sstOutput: number;
@@ -26,6 +28,10 @@ type TaxAdvise = {
     estimatedProfit: number;
     estimatedCorporateTax: number;
     corporateTaxRatePct: number;
+    taxBands: TaxBand[];
+    smeRateApplied: boolean;
+    effectiveRatePct: number;
+    cp204SafeEstimate: number;
   };
   audit: {
     score: number;
@@ -43,6 +49,34 @@ type TaxAdvise = {
     risk: "low" | "medium" | "high";
     legalNote: string;
   }>;
+  minimumTaxPlan: {
+    summary: string;
+    targetEstimatedTax: number;
+    strategies: Array<{
+      title: string;
+      action: string;
+      legalBasis: string;
+      estimatedSavingRm: number | null;
+      risk: "low" | "medium" | "high";
+    }>;
+    doubleDeductions: Array<{ title: string; basis: string; how: string }>;
+    capitalAllowanceRates: Array<{ assetClass: string; initialPct: number; annualPct: number }>;
+    disallowanceRisks: Array<{
+      severity: "high" | "medium" | "low" | "info";
+      code: string;
+      title: string;
+      detail: string;
+      estimatedAddBackRm?: number;
+      legalBasis: string;
+    }>;
+    cp204: {
+      minSafeEstimate: number;
+      recommendedEstimate: number;
+      monthlyInstalment: number;
+      penaltyThreshold: number;
+      notes: string[];
+    };
+  };
   recommendations: string[];
   summary: string;
   disclaimer: string;
@@ -207,13 +241,140 @@ export default function TaxPortalPage() {
                 </p>
               </div>
             </div>
+            {advise.counted.taxBands?.length ? (
+              <>
+                <h3>
+                  Corporate tax by band {advise.counted.smeRateApplied ? "(SME rate)" : "(standard rate)"}
+                </h3>
+                <table className="table">
+                  <thead>
+                    <tr>
+                      <th>Band</th>
+                      <th>Rate</th>
+                      <th>Taxable</th>
+                      <th>Tax</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {advise.counted.taxBands.map((band) => (
+                      <tr key={band.label}>
+                        <td>{band.label}</td>
+                        <td>{band.ratePct}%</td>
+                        <td>RM{band.taxable.toFixed(2)}</td>
+                        <td>RM{band.tax.toFixed(2)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+                <p className="muted">
+                  Effective rate {advise.counted.effectiveRatePct}% · CP204 penalty-safe estimate RM
+                  {advise.counted.cp204SafeEstimate.toFixed(2)}
+                </p>
+              </>
+            ) : null}
             <p className="muted">
               {advise.aiUsed ? "AI enrichment applied." : "Rule-based fallback (AI unavailable)."}
             </p>
           </section>
 
+          {advise.minimumTaxPlan && (
+            <section className="card">
+              <h2>2. Minimum-tax plan (legally pay the least)</h2>
+              <p>{advise.minimumTaxPlan.summary}</p>
+
+              <h3>CP204 cash-tax timing</h3>
+              <div className="grid metrics">
+                <div>
+                  <h4>Penalty-safe estimate</h4>
+                  <p>RM{advise.minimumTaxPlan.cp204.minSafeEstimate.toFixed(2)}</p>
+                </div>
+                <div>
+                  <h4>Monthly instalment</h4>
+                  <p>RM{advise.minimumTaxPlan.cp204.monthlyInstalment.toFixed(2)}</p>
+                </div>
+                <div>
+                  <h4>Penalty-free shortfall</h4>
+                  <p>RM{advise.minimumTaxPlan.cp204.penaltyThreshold.toFixed(2)}</p>
+                </div>
+              </div>
+              <ul className="muted">
+                {advise.minimumTaxPlan.cp204.notes.map((note) => (
+                  <li key={note}>{note}</li>
+                ))}
+              </ul>
+
+              <h3>Strategies ranked by saving</h3>
+              {advise.minimumTaxPlan.strategies.map((s) => (
+                <div key={s.title} style={{ marginBottom: "1rem" }}>
+                  <strong>{s.title}</strong>{" "}
+                  <span className="muted">
+                    [{s.risk} risk]
+                    {s.estimatedSavingRm != null
+                      ? ` · est. saving ~RM${s.estimatedSavingRm.toFixed(2)}`
+                      : ""}
+                  </span>
+                  <p style={{ margin: "0.25rem 0" }}>{s.action}</p>
+                  <p className="muted" style={{ margin: 0 }}>
+                    Legal basis: {s.legalBasis}
+                  </p>
+                </div>
+              ))}
+
+              {advise.minimumTaxPlan.disallowanceRisks.length > 0 && (
+                <>
+                  <h3>Add-back risks to clear</h3>
+                  <ul>
+                    {advise.minimumTaxPlan.disallowanceRisks.map((r) => (
+                      <li key={r.code}>
+                        <strong>{r.title}</strong>
+                        {r.estimatedAddBackRm != null
+                          ? ` (~RM${r.estimatedAddBackRm.toFixed(2)} added back)`
+                          : ""}
+                        <p className="muted" style={{ margin: "0.2rem 0" }}>
+                          {r.detail} <em>({r.legalBasis})</em>
+                        </p>
+                      </li>
+                    ))}
+                  </ul>
+                </>
+              )}
+
+              <h3>Double-deduction opportunities</h3>
+              <ul>
+                {advise.minimumTaxPlan.doubleDeductions.map((d) => (
+                  <li key={d.title}>
+                    <strong>{d.title}</strong> <span className="muted">({d.basis})</span>
+                    <p className="muted" style={{ margin: "0.2rem 0" }}>
+                      {d.how}
+                    </p>
+                  </li>
+                ))}
+              </ul>
+
+              <h3>Capital allowance rates</h3>
+              <table className="table">
+                <thead>
+                  <tr>
+                    <th>Asset class</th>
+                    <th>Initial</th>
+                    <th>Annual</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {advise.minimumTaxPlan.capitalAllowanceRates.map((ca) => (
+                    <tr key={ca.assetClass}>
+                      <td>{ca.assetClass}</td>
+                      <td>{ca.initialPct}%</td>
+                      <td>{ca.annualPct}%</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </section>
+          )}
+
           <section className="card">
-            <h2>2. Ways to reduce tax (legal)</h2>
+            <h2>3. Ways to reduce tax (legal)</h2>
             <ol>
               {advise.reductionIdeas.map((idea) => (
                 <li key={idea.title} style={{ marginBottom: "1rem" }}>
@@ -233,7 +394,7 @@ export default function TaxPortalPage() {
           </section>
 
           <section className="card">
-            <h2>3. Tax audit · score {advise.audit.score}/100</h2>
+            <h2>4. Tax audit · score {advise.audit.score}/100</h2>
             <ul>
               {advise.audit.findings.map((f) => (
                 <li key={f.code} className={severityClass(f.severity)} style={{ marginBottom: "0.75rem" }}>
@@ -247,7 +408,7 @@ export default function TaxPortalPage() {
           </section>
 
           <section className="card">
-            <h2>4. Recommendations</h2>
+            <h2>5. Recommendations</h2>
             <ol>
               {advise.recommendations.map((r) => (
                 <li key={r}>{r}</li>
