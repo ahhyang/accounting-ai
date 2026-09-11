@@ -5,6 +5,7 @@ export const SYSTEM_ROLES = {
   ADMIN: "Admin",
   ACCOUNTANT: "Accountant",
   BOOKKEEPER: "Bookkeeper",
+  MANAGER: "Manager",
   FINANCE_MANAGER: "Finance Manager",
   AUDITOR: "Auditor",
   TAX_AGENT: "Tax Agent",
@@ -53,6 +54,20 @@ export const ROLE_PERMISSION_MAP: Record<string, PermissionAction[]> = {
     "VIEW_AUDIT"
   ],
   [SYSTEM_ROLES.BOOKKEEPER]: ["VIEW", "CREATE", "EDIT", "EXPORT", "POST"],
+  [SYSTEM_ROLES.MANAGER]: [
+    "VIEW",
+    "CREATE",
+    "EDIT",
+    "APPROVE",
+    "EXPORT",
+    "POST",
+    "REVERSE",
+    "CLOSE_PERIOD",
+    "MANAGE_USERS",
+    "VIEW_PAYROLL",
+    "VIEW_TAX",
+    "VIEW_AUDIT"
+  ],
   [SYSTEM_ROLES.FINANCE_MANAGER]: [
     "VIEW",
     "CREATE",
@@ -76,7 +91,7 @@ export function getPortalForRole(roleName: string): AppPortal {
   if ((CLIENT_ROLES as readonly string[]).includes(roleName)) return "client";
   if (roleName === SYSTEM_ROLES.TAX_AGENT) return "tax";
   if (roleName === SYSTEM_ROLES.AUDITOR) return "audit";
-  if (roleName === SYSTEM_ROLES.FINANCE_MANAGER) return "manager";
+  if (roleName === SYSTEM_ROLES.MANAGER || roleName === SYSTEM_ROLES.FINANCE_MANAGER) return "manager";
   if (roleName === SYSTEM_ROLES.OWNER || roleName === SYSTEM_ROLES.ADMIN) return "boss";
   return "accountant";
 }
@@ -107,6 +122,7 @@ export function isAccountantRole(roleName: string): boolean {
     (ACCOUNTANT_ROLES as readonly string[]).includes(roleName) ||
     roleName === SYSTEM_ROLES.OWNER ||
     roleName === SYSTEM_ROLES.ADMIN ||
+    roleName === SYSTEM_ROLES.MANAGER ||
     roleName === SYSTEM_ROLES.FINANCE_MANAGER ||
     roleName === SYSTEM_ROLES.AUDITOR ||
     roleName === SYSTEM_ROLES.TAX_AGENT
@@ -156,10 +172,10 @@ export const DEMO_ACCOUNTS: Array<{
   {
     email: "manager@demo.my",
     password: "demo1234",
-    roleName: SYSTEM_ROLES.FINANCE_MANAGER,
+    roleName: SYSTEM_ROLES.MANAGER,
     portal: "manager",
     label: "Manager",
-    blurb: "Month-end review, close period, publish reports"
+    blurb: "Client progress, billing, month-end review, close period"
   },
   {
     email: "boss@demo.my",

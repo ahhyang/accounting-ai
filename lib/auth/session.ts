@@ -4,7 +4,41 @@ import type { PermissionAction } from "@prisma/client";
 import { authOptions } from "@/lib/auth/options";
 import { db } from "@/lib/db";
 import { userHasPermission } from "@/lib/permissions/check";
-import { isClientRole, type AppPortal } from "@/lib/permissions/constants";
+import { isClientRole, SYSTEM_ROLES, type AppPortal } from "@/lib/permissions/constants";
+
+const FIRM_ADMIN_ROLES: string[] = [
+  SYSTEM_ROLES.OWNER,
+  SYSTEM_ROLES.ADMIN,
+  SYSTEM_ROLES.MANAGER,
+  SYSTEM_ROLES.FINANCE_MANAGER
+];
+
+/** Session must belong to at least one firm-admin role (Boss/Owner/Admin/Manager). */
+export async function requireFirmAdmin() {
+  const result = await requireSession();
+  if (!result.ok) return result;
+
+  const memberships = await db.companyUser.findMany({
+    where: { userId: result.session.user.id },
+    include: { role: true }
+  });
+
+  const allowed = memberships.some(
+    (m) => m.isOwner || FIRM_ADMIN_ROLES.includes(m.role.name)
+  );
+
+  if (!allowed) {
+    return {
+      ok: false as const,
+      error: NextResponse.json(
+        { ok: false, error: "Firm manager / partner access required." },
+        { status: 403 }
+      )
+    };
+  }
+
+  return { ok: true as const, session: result.session, memberships };
+}
 
 export async function getSession() {
   return getServerSession(authOptions);

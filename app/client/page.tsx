@@ -18,6 +18,22 @@ type SubmitResult = {
   tidyError?: string | null;
 };
 
+type Dashboard = {
+  company: { name: string; registrationNumber: string | null; industry: string | null; currency: string };
+  period: { label: string; isClosed: boolean } | null;
+  financials: {
+    revenue: number;
+    expenses: number;
+    profit: number;
+    balanced: boolean;
+    outstandingAR: number;
+    outstandingAP: number;
+  };
+  documents: { total: number; byCategory: Record<string, number> };
+};
+
+const money = (n: number) => `RM ${Number(n ?? 0).toFixed(2)}`;
+
 export default function ClientHomePage() {
   const [progress, setProgress] = useState(0);
   const [companyName, setCompanyName] = useState("");
@@ -26,6 +42,7 @@ export default function ClientHomePage() {
   const [submitting, setSubmitting] = useState(false);
   const [submitResult, setSubmitResult] = useState<SubmitResult | null>(null);
   const [submitMessage, setSubmitMessage] = useState("");
+  const [dashboard, setDashboard] = useState<Dashboard | null>(null);
 
   useEffect(() => {
     fetch("/api/client/checklist")
@@ -41,6 +58,14 @@ export default function ClientHomePage() {
           ["UPLOADED", "ACCEPTED", "SKIPPED"].includes(c.status)
         ).length;
         setDocHint(`${uploaded} of ${data.checklist.length} areas covered after AI sort`);
+      });
+  }, [submitResult]);
+
+  useEffect(() => {
+    fetch("/api/client/dashboard")
+      .then((r) => r.json())
+      .then((data) => {
+        if (data.ok) setDashboard(data);
       });
   }, [submitResult]);
 
@@ -96,6 +121,62 @@ export default function ClientHomePage() {
           </Link>
         </div>
       </section>
+
+      {dashboard && (
+        <section className="card">
+          <h2>Company dashboard</h2>
+          <p className="muted">
+            {dashboard.company.name}
+            {dashboard.company.registrationNumber ? ` · ${dashboard.company.registrationNumber}` : ""}
+            {dashboard.company.industry ? ` · ${dashboard.company.industry}` : ""}
+            {dashboard.period ? ` · ${dashboard.period.label}` : ""}
+            {dashboard.period?.isClosed ? " · closed" : ""}
+          </p>
+          <div className="grid metrics">
+            <div className="card">
+              <h3>Revenue</h3>
+              <p className="metric-value">{money(dashboard.financials.revenue)}</p>
+            </div>
+            <div className="card">
+              <h3>Expenses</h3>
+              <p className="metric-value">{money(dashboard.financials.expenses)}</p>
+            </div>
+            <div className="card">
+              <h3>Profit</h3>
+              <p className="metric-value">{money(dashboard.financials.profit)}</p>
+            </div>
+            <div className="card">
+              <h3>Books</h3>
+              <p className="metric-value">
+                {dashboard.financials.balanced ? "Balanced ✓" : "In progress"}
+              </p>
+            </div>
+          </div>
+          <div className="grid metrics">
+            <div className="card">
+              <h3>Owed to you (AR)</h3>
+              <p>{money(dashboard.financials.outstandingAR)}</p>
+            </div>
+            <div className="card">
+              <h3>You owe (AP)</h3>
+              <p>{money(dashboard.financials.outstandingAP)}</p>
+            </div>
+            <div className="card">
+              <h3>Documents on file</h3>
+              <p>{dashboard.documents.total}</p>
+              <span className="muted">
+                {Object.entries(dashboard.documents.byCategory)
+                  .filter(([, n]) => n > 0)
+                  .map(([c, n]) => `${c} ${n}`)
+                  .join(" · ") || "none yet"}
+              </span>
+            </div>
+          </div>
+          <p>
+            <Link href={"/client/reports" as Route}>View monthly reports →</Link>
+          </p>
+        </section>
+      )}
 
       <section className="card">
         <h2>What to include (all together is OK)</h2>

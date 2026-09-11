@@ -118,6 +118,20 @@ enum ReportSnapshotStatus {
   PUBLISHED
 }
 
+enum EngagementStatus {
+  ONBOARDING
+  ACTIVE
+  ON_HOLD
+  COMPLETED
+}
+
+enum BillingStatus {
+  NOT_BILLED
+  INVOICED
+  PAID
+  OVERDUE
+}
+
 model Company {
   id                 String             @id @default(cuid())
   name               String
@@ -153,6 +167,24 @@ model Company {
   clientMessages     ClientMessage[]
   auditEvents        AuditEvent[]
   reportSnapshots    ReportSnapshot[]
+  engagement         ClientEngagement?
+}
+
+/// Firm-side engagement + billing record for a client company.
+model ClientEngagement {
+  id               String           @id @default(cuid())
+  companyId        String           @unique
+  engagementStatus EngagementStatus @default(ONBOARDING)
+  accountingFee    Decimal?         @db.Decimal(18, 2)
+  billingStatus    BillingStatus    @default(NOT_BILLED)
+  invoiceNumber    String?
+  amountDue        Decimal?         @db.Decimal(18, 2)
+  dueDate          DateTime?
+  lastPaymentDate  DateTime?
+  notes            String?
+  createdAt        DateTime         @default(now())
+  updatedAt        DateTime         @updatedAt
+  company          Company          @relation(fields: [companyId], references: [id], onDelete: Cascade)
 }
 
 model User {

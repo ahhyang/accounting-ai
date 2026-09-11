@@ -106,6 +106,23 @@ async function main() {
     }
   });
 
+  // Firm-side engagement + billing record for the boss/manager dashboards.
+  const now = new Date();
+  await db.clientEngagement.upsert({
+    where: { companyId: company.id },
+    update: {},
+    create: {
+      companyId: company.id,
+      engagementStatus: "ACTIVE",
+      billingStatus: "INVOICED",
+      accountingFee: 1200,
+      amountDue: 1200,
+      dueDate: new Date(now.getFullYear(), now.getMonth(), 28),
+      invoiceNumber: "INV-FIRM-0001",
+      notes: "Monthly accounting + tax package"
+    }
+  });
+
   const created: string[] = [];
 
   for (const acc of DEMO_ACCOUNTS) {
