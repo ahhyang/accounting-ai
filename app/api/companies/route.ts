@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { db } from "@/lib/db";
+import { requireSession } from "@/lib/auth/session";
+import { SYSTEM_ROLES } from "@/lib/permissions/constants";
 import { createCompanyWithDefaults } from "@/lib/company/setup";
 
 const createSchema = z.object({
@@ -14,7 +16,20 @@ const createSchema = z.object({
 });
 
 export async function GET() {
+  const auth = await requireSession();
+  if (!auth.ok) return auth.error;
+
+  const memberships = await db.companyUser.findMany({
+    where: { userId: auth.session.user.id },
+    select: { companyId: true, isOwner: true, role: { select: { name: true } } }
+  });
+
+  const isFirmAdmin = memberships.some(
+    (m) => m.isOwner || m.role.name === SYSTEM_ROLES.OWNER || m.role.name === SYSTEM_ROLES.ADMIN
+  );
+
   const companies = await db.company.findMany({
+    where: isFirmAdmin ? {} : { id: { in: memberships.map((m) => m.companyId) } },
     orderBy: { createdAt: "desc" },
     include: {
       _count: { select: { accounts: true, memberships: true } },
@@ -27,6 +42,9 @@ export async function GET() {
 
 export async function POST(request: Request) {
   try {
+    const auth = await requireSession();
+    if (!auth.ok) return auth.error;
+
     const json = await request.json();
     const payload = createSchema.parse(json);
     const result = await createCompanyWithDefaults(payload);
