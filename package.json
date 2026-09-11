@@ -14,6 +14,7 @@
     "db:seed": "tsx prisma/seed.ts",
     "db:seed:mock": "tsx prisma/seed-mock.ts",
     "db:seed:portal": "tsx prisma/seed-portal.ts",
+    "db:seed:bulk": "tsx prisma/seed-bulk.ts",
     "test:tax": "tsx scripts/test-tax.ts"
   },
   "prisma": {

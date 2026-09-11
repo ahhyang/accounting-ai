@@ -106,6 +106,33 @@ npm run dev
 - Client: `client@demo.my` / `demo1234` → `/client`
 - Accountant: `accountant@demo.my` / `demo1234` → `/accountant`
 
+### Bulk demo data (multiple clients)
+Populate the practice with several SME clients across varied statuses so the
+Boss/Manager dashboards look realistic during a demo:
+
+```bash
+npm run db:seed        # Demo Company + owner
+npm run db:seed:portal # all firm role logins + engagement/billing
+npm run db:seed:mock   # mock AR/AP/bank/docs for Demo Company
+npm run db:seed:bulk   # 8 more client companies + books + billing
+```
+
+Client logins created by the bulk seed (all password `demo1234`):
+
+| Client | Login | Profile |
+|--------|-------|---------|
+| Alpha Trading | `alpha@demo.my` | Paid, month-end closed, healthy |
+| Beta Retail | `beta@demo.my` | Invoiced, duplicate bills |
+| Gamma Services | `gamma@demo.my` | Overdue, loss (going concern) |
+| Delta Manufacturing | `delta@demo.my` | Onboarding, 6 docs pending |
+| Epsilon Logistics | `epsilon@demo.my` | Not billed, SST registered |
+| Zeta Foods | `zeta@demo.my` | Paid, overdue AR + duplicate |
+| Eta Construction | `eta@demo.my` | On hold, overdue, loss |
+| Theta Tech | `theta@demo.my` | Invoiced, near-complete |
+
+Boss (`boss@demo.my`) and Manager (`manager@demo.my`) see all 9 clients with
+progress, month-end %, books balanced, and billing (paid / invoiced / overdue).
+
 ### Client flow
 1. Sign in → monthly checklist with clear instructions
 2. Upload bank/sales/purchase/payroll/tax docs
