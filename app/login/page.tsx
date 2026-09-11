@@ -25,7 +25,7 @@ export default function LoginPage() {
     });
     setLoading(false);
     if (res?.error) {
-      setError("Login failed. Run npm run db:seed:portal if demo users are missing.");
+      setError("Login failed. Seed demo users with npm run db:seed:portal, then try again.");
       return;
     }
     const me = await fetch("/api/auth/session").then((r) => r.json());
@@ -45,16 +45,24 @@ export default function LoginPage() {
   }
 
   return (
-    <main className="container grid" style={{ maxWidth: 720, marginTop: 48 }}>
+    <main className="container grid login-shell">
       <section className="card">
-        <h1>Sign in</h1>
-        <p className="muted">
-          Demo firm roles: Client → Accountant → Tax → Audit → Manager → Boss
-        </p>
-        <form className="form grid" onSubmit={onSubmit}>
+        <div className="page-header">
+          <h1>Sign in</h1>
+          <p className="muted">
+            Pick a demo role or enter credentials. Flow: Client → Accountant → Tax → Audit → Manager
+            → Boss.
+          </p>
+        </div>
+        <form className="form grid" onSubmit={onSubmit} style={{ marginTop: 16 }}>
           <label>
             Email
-            <input value={email} onChange={(e) => setEmail(e.target.value)} required />
+            <input
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              autoComplete="username"
+              required
+            />
           </label>
           <label>
             Password
@@ -62,11 +70,12 @@ export default function LoginPage() {
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
+              autoComplete="current-password"
               required
             />
           </label>
           <button className="btn" type="submit" disabled={loading}>
-            {loading ? "Signing in..." : "Sign in"}
+            {loading ? "Signing in…" : "Sign in"}
           </button>
         </form>
         {error && <p className="message error">{error}</p>}
@@ -75,60 +84,53 @@ export default function LoginPage() {
       <section className="card">
         <h2>Demo accounts</h2>
         <p className="muted" style={{ marginBottom: 12 }}>
-          Password for every account: <strong style={{ color: "#eef2ff" }}>demo1234</strong>
+          Password: <strong>demo1234</strong>
         </p>
-        <table className="table">
-          <thead>
-            <tr>
-              <th>Role</th>
-              <th>Email</th>
-              <th>What they do</th>
-              <th></th>
-            </tr>
-          </thead>
-          <tbody>
-            {DEMO_ACCOUNTS.map((acc) => (
-              <tr key={acc.email}>
-                <td>
-                  <strong>{acc.label}</strong>
-                </td>
-                <td>
-                  <code style={{ fontSize: 13 }}>{acc.email}</code>
-                </td>
-                <td className="muted" style={{ fontSize: 13 }}>
-                  {acc.blurb}
-                </td>
-                <td>
-                  <div className="row" style={{ gap: 6, flexWrap: "nowrap" }}>
-                    <button
-                      type="button"
-                      className="btn small secondary"
-                      disabled={loading}
-                      onClick={() => fillAccount(acc.email, acc.password)}
-                    >
-                      Fill
-                    </button>
-                    <button
-                      type="button"
-                      className="btn small"
-                      disabled={loading}
-                      onClick={() => loginAs(acc.email, acc.password)}
-                    >
-                      Login
-                    </button>
-                  </div>
-                </td>
+        <div className="table-wrap">
+          <table className="table">
+            <thead>
+              <tr>
+                <th>Role</th>
+                <th>Email</th>
+                <th>Focus</th>
+                <th></th>
               </tr>
-            ))}
-          </tbody>
-        </table>
-        <ul className="muted" style={{ marginTop: 16, fontSize: 13, lineHeight: 1.7 }}>
-          {DEMO_ACCOUNTS.map((acc) => (
-            <li key={`list-${acc.email}`}>
-              <strong>{acc.label}:</strong> {acc.email} / demo1234
-            </li>
-          ))}
-        </ul>
+            </thead>
+            <tbody>
+              {DEMO_ACCOUNTS.map((acc) => (
+                <tr key={acc.email}>
+                  <td>
+                    <strong>{acc.label}</strong>
+                  </td>
+                  <td>
+                    <code className="mono">{acc.email}</code>
+                  </td>
+                  <td className="muted">{acc.blurb}</td>
+                  <td>
+                    <div className="btn-row">
+                      <button
+                        type="button"
+                        className="btn small secondary"
+                        disabled={loading}
+                        onClick={() => fillAccount(acc.email, acc.password)}
+                      >
+                        Fill
+                      </button>
+                      <button
+                        type="button"
+                        className="btn small"
+                        disabled={loading}
+                        onClick={() => loginAs(acc.email, acc.password)}
+                      >
+                        Login
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       </section>
     </main>
   );

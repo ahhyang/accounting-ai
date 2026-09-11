@@ -1,0 +1,21 @@
+{
+  "merchant": "Foodpanda / Restoran Ipoh White Coffee",
+  "supplier": "Foodpanda Malaysia",
+  "customer": null,
+  "documentNumber": "FP-7788123",
+  "date": "2026-05-14",
+  "dueDate": null,
+  "subtotal": 31.40,
+  "tax": 1.88,
+  "total": 33.28,
+  "currency": "MYR",
+  "paymentMethod": "Touch n Go eWallet",
+  "categoryHint": "PURCHASE",
+  "lineItems": [
+    { "description": "White coffee set", "quantity": 2, "unitPrice": 9.90, "amount": 19.80 },
+    { "description": "Kaya toast", "quantity": 1, "unitPrice": 6.50, "amount": 6.50 },
+    { "description": "Delivery fee", "quantity": 1, "unitPrice": 5.10, "amount": 5.10 },
+    { "description": "SST 6%", "quantity": 1, "unitPrice": 1.88, "amount": 1.88 }
+  ],
+  "notes": "Sample JSON receipt for AI Finance OS upload testing"
+}

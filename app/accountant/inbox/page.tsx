@@ -39,8 +39,10 @@ export default function AccountantInboxPage() {
   return (
     <main className="container grid">
       <section className="card">
-        <h1>Document inbox</h1>
-        <p className="muted">Review client uploads and AI proposals before posting.</p>
+        <div className="page-header">
+          <h1>Document inbox</h1>
+          <p className="muted">Review client uploads and AI proposals before posting.</p>
+        </div>
         <div className="row">
           <select value={filter} onChange={(e) => setFilter(e.target.value)}>
             <option value="all">All</option>
@@ -59,32 +61,38 @@ export default function AccountantInboxPage() {
             hint="When clients upload or scan documents, they appear here."
           />
         ) : (
-          <table className="table">
-            <thead>
-              <tr>
-                <th>Company</th>
-                <th>File</th>
-                <th>Category</th>
-                <th>Status</th>
-                <th>AI %</th>
-                <th></th>
-              </tr>
-            </thead>
-            <tbody>
-              {filtered.map((d) => (
-                <tr key={d.id}>
-                  <td>{d.company.name}</td>
-                  <td>{d.fileName ?? "Document"}</td>
-                  <td>{categoryLabel(d.category)}</td>
-                  <td>{statusLabel(d.status)}</td>
-                  <td>{d.aiConfidence != null ? Number(d.aiConfidence).toFixed(0) : "—"}</td>
-                  <td>
-                    <Link href={`/accountant/review/${d.id}`}>Review</Link>
-                  </td>
+          <div className="table-wrap">
+            <table className="table">
+              <thead>
+                <tr>
+                  <th>Company</th>
+                  <th>File</th>
+                  <th>Category</th>
+                  <th>Status</th>
+                  <th>AI %</th>
+                  <th></th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {filtered.map((d) => (
+                  <tr key={d.id}>
+                    <td>{d.company.name}</td>
+                    <td>{d.fileName ?? "Document"}</td>
+                    <td>{categoryLabel(d.category)}</td>
+                    <td>
+                      <span className="badge">{statusLabel(d.status)}</span>
+                    </td>
+                    <td>{d.aiConfidence != null ? Number(d.aiConfidence).toFixed(0) : "—"}</td>
+                    <td>
+                      <Link className="btn small" href={`/accountant/review/${d.id}`}>
+                        Review
+                      </Link>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         )}
       </section>
     </main>

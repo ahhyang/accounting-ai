@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
+import { requireCompanyAccess } from "@/lib/auth/session";
 import { createAndPostJournal, PostingError } from "@/lib/accounting/posting";
 
 const lineSchema = z.object({
@@ -22,6 +23,10 @@ export async function POST(request: Request) {
   try {
     const json = await request.json();
     const payload = payloadSchema.parse(json);
+
+    const auth = await requireCompanyAccess(payload.companyId, { permission: "POST" });
+    if (!auth.ok) return auth.error;
+
     const posted = await createAndPostJournal(payload);
 
     return NextResponse.json({

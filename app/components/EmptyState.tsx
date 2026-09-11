@@ -11,11 +11,9 @@ export function EmptyState({
 }) {
   return (
     <div className="empty-state">
-      <p>
-        <strong>{title}</strong>
-      </p>
+      <strong>{title}</strong>
       {hint && <p className="muted">{hint}</p>}
-      {action}
+      {action ? <div style={{ marginTop: 16 }}>{action}</div> : null}
     </div>
   );
 }

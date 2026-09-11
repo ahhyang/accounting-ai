@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
+import { requireCompanyAccess } from "@/lib/auth/session";
 import { createApPayment } from "@/lib/ap/service";
 import { PostingError } from "@/lib/accounting/posting";
 
@@ -16,6 +17,9 @@ export async function POST(
   { params }: { params: { companyId: string } }
 ) {
   try {
+    const auth = await requireCompanyAccess(params.companyId, { permission: "CREATE" });
+    if (!auth.ok) return auth.error;
+
     const payload = schema.parse(await request.json());
     const result = await createApPayment({
       companyId: params.companyId,

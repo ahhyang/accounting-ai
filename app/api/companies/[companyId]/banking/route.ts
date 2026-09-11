@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { db } from "@/lib/db";
+import { requireCompanyAccess } from "@/lib/auth/session";
 import {
   autoMatchBankTransactions,
   getReconciliationSummary,
@@ -11,6 +12,9 @@ export async function GET(
   request: Request,
   { params }: { params: { companyId: string } }
 ) {
+  const auth = await requireCompanyAccess(params.companyId, { permission: "VIEW" });
+  if (!auth.ok) return auth.error;
+
   const bankAccountId = new URL(request.url).searchParams.get("bankAccountId");
 
   if (!bankAccountId) {
@@ -48,6 +52,9 @@ export async function POST(
   { params }: { params: { companyId: string } }
 ) {
   try {
+    const auth = await requireCompanyAccess(params.companyId, { permission: "CREATE" });
+    if (!auth.ok) return auth.error;
+
     const json = await request.json();
     const action = json.action as string | undefined;
 

@@ -121,3 +121,23 @@ export async function createUploadedDocument(input: {
 
   return doc;
 }
+
+/** After bulk upload + AI classify, mark matching monthly checklist rows as received. */
+export async function syncChecklistFromCategories(
+  companyId: string,
+  periodId: string,
+  categories: DocumentCategory[]
+) {
+  const unique = Array.from(new Set(categories)).filter((c) => c !== "OTHER");
+  if (unique.length === 0) return;
+
+  await db.documentRequest.updateMany({
+    where: {
+      companyId,
+      periodId,
+      category: { in: unique },
+      status: { in: ["NOT_STARTED", "NEEDS_FIX"] }
+    },
+    data: { status: "UPLOADED" }
+  });
+}

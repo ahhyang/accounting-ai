@@ -87,6 +87,33 @@ export default function ReviewPage() {
   const latest = doc?.suggestions?.[0];
   const extracted = latest?.payload?.extracted;
 
+  const round2 = (n: number) => Math.round(n * 100) / 100;
+  const totalDebit = round2(lines.reduce((s, l) => s + (Number(l.debit) || 0), 0));
+  const totalCredit = round2(lines.reduce((s, l) => s + (Number(l.credit) || 0), 0));
+  const difference = round2(totalDebit - totalCredit);
+  const balanced = lines.length >= 2 && totalDebit > 0 && Math.abs(difference) < 0.01;
+
+  function autoBalance() {
+    setLines((prev) => {
+      if (prev.length === 0) return prev;
+      const debit = prev.reduce((s, l) => s + (Number(l.debit) || 0), 0);
+      const credit = prev.reduce((s, l) => s + (Number(l.credit) || 0), 0);
+      const diff = round2(debit - credit);
+      if (Math.abs(diff) < 0.01) return prev;
+      const next = prev.map((l) => ({ ...l }));
+      if (diff > 0) {
+        const idx = next.findIndex((l) => (Number(l.credit) || 0) > 0);
+        const target = idx >= 0 ? idx : next.length - 1;
+        next[target].credit = round2((Number(next[target].credit) || 0) + diff);
+      } else {
+        const idx = next.findIndex((l) => (Number(l.debit) || 0) > 0);
+        const target = idx >= 0 ? idx : next.length - 1;
+        next[target].debit = round2((Number(next[target].debit) || 0) + Math.abs(diff));
+      }
+      return next;
+    });
+  }
+
   return (
     <main className="container grid">
       <section className="card">
@@ -181,10 +208,21 @@ export default function ReviewPage() {
               ))}
             </tbody>
           </table>
+          <p className={balanced ? "message success" : "message error"}>
+            Debit RM{totalDebit.toFixed(2)} · Credit RM{totalCredit.toFixed(2)} ·{" "}
+            {balanced
+              ? "Balanced ✓"
+              : `Out of balance by RM${Math.abs(difference).toFixed(2)}`}
+          </p>
           <div className="row">
             <button type="button" className="btn secondary" onClick={addLine}>
               Add line
             </button>
+            {!balanced && (
+              <button type="button" className="btn secondary" onClick={autoBalance}>
+                Auto-balance
+              </button>
+            )}
             <button
               type="button"
               className="btn"

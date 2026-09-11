@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
+import { requireSession } from "@/lib/auth/session";
 import { callOpenRouter } from "@/lib/ai/openrouter";
 
 const payloadSchema = z.object({
@@ -10,6 +11,9 @@ const payloadSchema = z.object({
 
 export async function POST(request: Request) {
   try {
+    const auth = await requireSession();
+    if (!auth.ok) return auth.error;
+
     const json = await request.json();
     const payload = payloadSchema.parse(json);
 

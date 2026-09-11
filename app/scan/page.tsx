@@ -316,12 +316,7 @@ export default function ScanBillPage() {
         </div>
 
         {cameraOn && (
-          <video
-            ref={videoRef}
-            playsInline
-            muted
-            style={{ width: "100%", maxWidth: 480, marginTop: 12, borderRadius: 8, border: "1px solid #273159" }}
-          />
+          <video ref={videoRef} className="video-frame" playsInline muted style={{ marginTop: 12 }} />
         )}
         <canvas ref={canvasRef} hidden />
 
@@ -330,9 +325,10 @@ export default function ScanBillPage() {
             <p className="muted">Preview</p>
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
+              className="video-frame"
               src={previewUrl ?? result?.document.previewUrl ?? ""}
               alt="Scanned document"
-              style={{ maxWidth: "100%", maxHeight: 320, borderRadius: 8, border: "1px solid #273159" }}
+              style={{ maxHeight: 320, objectFit: "contain", background: "var(--surface-2)" }}
             />
           </div>
         )}

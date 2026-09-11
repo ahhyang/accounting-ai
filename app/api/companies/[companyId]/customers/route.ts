@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { db } from "@/lib/db";
+import { requireCompanyAccess } from "@/lib/auth/session";
 
 const schema = z.object({
   name: z.string().min(1),
@@ -14,6 +15,9 @@ export async function GET(
   _request: Request,
   { params }: { params: { companyId: string } }
 ) {
+  const auth = await requireCompanyAccess(params.companyId, { permission: "VIEW" });
+  if (!auth.ok) return auth.error;
+
   const customers = await db.customer.findMany({
     where: { companyId: params.companyId },
     include: {
@@ -40,6 +44,9 @@ export async function POST(
   { params }: { params: { companyId: string } }
 ) {
   try {
+    const auth = await requireCompanyAccess(params.companyId, { permission: "CREATE" });
+    if (!auth.ok) return auth.error;
+
     const payload = schema.parse(await request.json());
     const customer = await db.customer.create({
       data: {

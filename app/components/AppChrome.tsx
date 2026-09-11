@@ -13,11 +13,11 @@ export function AppChrome() {
   return (
     <div className="app-chrome">
       <div className="container app-chrome-inner">
-        <span>
+        <span className="chrome-pill">
           <strong>{companyName || "Your company"}</strong>
-          <span className="muted"> · Current month</span>
+          <span>· Current month</span>
         </span>
-        <span className="muted">
+        <span className="chrome-pill">
           {portalLabel(portal)} · {roleName}
         </span>
       </div>

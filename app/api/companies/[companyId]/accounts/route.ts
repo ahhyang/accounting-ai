@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { db } from "@/lib/db";
+import { requireCompanyAccess } from "@/lib/auth/session";
 import type { AccountType } from "@prisma/client";
 
 const createAccountSchema = z.object({
@@ -15,6 +16,9 @@ export async function GET(
   _request: Request,
   { params }: { params: { companyId: string } }
 ) {
+  const auth = await requireCompanyAccess(params.companyId, { permission: "VIEW" });
+  if (!auth.ok) return auth.error;
+
   const accounts = await db.account.findMany({
     where: { companyId: params.companyId },
     orderBy: { code: "asc" }
@@ -28,6 +32,9 @@ export async function POST(
   { params }: { params: { companyId: string } }
 ) {
   try {
+    const auth = await requireCompanyAccess(params.companyId, { permission: "CREATE" });
+    if (!auth.ok) return auth.error;
+
     const json = await request.json();
     const payload = createAccountSchema.parse(json);
 

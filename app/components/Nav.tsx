@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import type { Route } from "next";
+import { usePathname } from "next/navigation";
 import { signOut, useSession } from "next-auth/react";
 import type { AppPortal } from "@/lib/permissions/constants";
 
@@ -16,8 +17,8 @@ function linksForPortal(portal: AppPortal | undefined): NavLink[] {
   switch (portal) {
     case "client":
       return [
-        { href: "/client" as Route, label: "Checklist" },
-        { href: "/client/documents" as Route, label: "Documents" },
+        { href: "/client" as Route, label: "Home" },
+        { href: "/client/uploads" as Route, label: "Upload all" },
         { href: "/client/messages" as Route, label: "Messages" },
         { href: "/client/reports" as Route, label: "Reports" }
       ];
@@ -37,6 +38,7 @@ function linksForPortal(portal: AppPortal | undefined): NavLink[] {
         { href: "/manager" as Route, label: "Close" },
         { href: "/month-end" as Route, label: "Month-end" },
         { href: "/accountant/inbox" as Route, label: "Inbox" },
+        { href: "/accountant/books" as Route, label: "Balance" },
         { href: "/tax" as Route, label: "Tax" }
       ];
     case "boss":
@@ -51,6 +53,9 @@ function linksForPortal(portal: AppPortal | undefined): NavLink[] {
       return [
         { href: "/accountant" as Route, label: "Dashboard" },
         { href: "/accountant/inbox" as Route, label: "Inbox" },
+        { href: "/accountant/tidy" as Route, label: "AI Tidy" },
+        { href: "/accountant/books" as Route, label: "Balance" },
+        { href: "/tax" as Route, label: "Tax AI" },
         { href: "/accountant/clients" as Route, label: "Clients" },
         { href: "/scan" as Route, label: "Scan" },
         { href: "/sales" as Route, label: "Sales" },
@@ -64,21 +69,30 @@ function linksForPortal(portal: AppPortal | undefined): NavLink[] {
   }
 }
 
+function isActive(pathname: string, href: string) {
+  if (href === "/") return pathname === "/";
+  return pathname === href || pathname.startsWith(`${href}/`);
+}
+
 export function Nav() {
   const { data } = useSession();
+  const pathname = usePathname() || "/";
   const portal = data?.user?.portal;
   const links = data?.user ? linksForPortal(portal) : publicLinks;
+  const homeHref = (data?.user ? links[0]?.href : "/") as Route;
 
   return (
-    <nav className="nav">
-      <strong>
-        <Link href={(data?.user ? links[0]?.href : "/") as Route} style={{ color: "inherit" }}>
-          AI Finance OS
-        </Link>
-      </strong>
+    <nav className="nav" aria-label="Main">
+      <Link className="nav-brand" href={homeHref}>
+        AI Finance OS
+      </Link>
       <div className="nav-links">
         {links.map((link) => (
-          <Link key={link.href} href={link.href}>
+          <Link
+            key={link.href}
+            href={link.href}
+            className={`nav-link${isActive(pathname, link.href) ? " active" : ""}`}
+          >
             {link.label}
           </Link>
         ))}
@@ -91,7 +105,9 @@ export function Nav() {
             Sign out
           </button>
         ) : (
-          <Link href="/login">Login</Link>
+          <Link className="nav-link" href="/login">
+            Login
+          </Link>
         )}
       </div>
     </nav>

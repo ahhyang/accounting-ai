@@ -1,9 +1,11 @@
 import { NextResponse } from "next/server";
 import { requireCompanyAccess } from "@/lib/auth/session";
-import { createUploadedDocument } from "@/lib/portal/documents";
+import { createUploadedDocument, syncChecklistFromCategories } from "@/lib/portal/documents";
 import { runAiOnDocument } from "@/lib/portal/review";
+import { tidyOneDocument } from "@/lib/portal/tidy-documents";
 import { db } from "@/lib/db";
 import type { DocumentCategory } from "@prisma/client";
+import { round2 } from "@/lib/accounting/helpers";
 
 /** Allow large multipart uploads (any file type). */
 export const runtime = "nodejs";
@@ -26,7 +28,9 @@ export async function POST(request: Request) {
     const form = await request.formData();
     const companyId = String(form.get("companyId") || "");
     const periodId = String(form.get("periodId") || "");
+    // Bulk dump: client does not choose category — AI classifies after extract.
     const category = String(form.get("category") || "OTHER") as DocumentCategory;
+    const autoClassify = String(form.get("autoClassify") || "1") !== "0";
     const requestId = form.get("requestId") ? String(form.get("requestId")) : undefined;
     const clientNote = form.get("clientNote") ? String(form.get("clientNote")) : undefined;
     const files = collectFiles(form);
@@ -41,23 +45,23 @@ export async function POST(request: Request) {
     const auth = await requireCompanyAccess(companyId);
     if (!auth.ok) return auth.error;
 
+    const startCategory: DocumentCategory = autoClassify ? "OTHER" : category;
+
     const documents = [];
     const aiResults = [];
+    const tidyResults = [];
 
     for (const [index, file] of files.entries()) {
       const doc = await createUploadedDocument({
         companyId,
         periodId,
-        category,
+        category: startCategory,
         file,
         uploadedByUserId: auth.session.user.id,
-        // Only link the first file to a checklist request
-        requestId: index === 0 ? requestId : undefined,
+        requestId: !autoClassify && index === 0 ? requestId : undefined,
         clientNote:
           files.length > 1
-            ? [clientNote, `Batch upload ${index + 1}/${files.length}: ${file.name}`]
-                .filter(Boolean)
-                .join(" — ")
+            ? [clientNote, `Bulk ${index + 1}/${files.length}: ${file.name}`].filter(Boolean).join(" — ")
             : clientNote
       });
 
@@ -71,15 +75,45 @@ export async function POST(request: Request) {
         });
       }
 
+      let tidy = null;
+      try {
+        tidy = await tidyOneDocument(doc.id, { forceClassify: autoClassify });
+      } catch {
+        tidy = null;
+      }
+
       documents.push({
         id: doc.id,
-        fileName: doc.fileName,
+        fileName: tidy?.tidyFileName ?? doc.fileName,
+        originalFileName: tidy?.originalFileName ?? doc.fileName,
         mimeType: doc.mimeType,
         sizeBytes: file.size,
-        status: "IN_REVIEW"
+        status: "IN_REVIEW",
+        category: tidy?.category ?? startCategory,
+        confidence: tidy?.confidence ?? ai?.confidence ?? null,
+        fields: tidy?.fields ?? null,
+        aiUsed: Boolean(ai?.aiUsed),
+        aiError: ai?.aiError ?? null
       });
       aiResults.push(ai);
+      tidyResults.push(tidy);
     }
+
+    const categoryCounts: Record<string, number> = {};
+    const categoryTotals: Record<string, number> = {};
+    for (const d of documents) {
+      categoryCounts[d.category] = (categoryCounts[d.category] ?? 0) + 1;
+      const total = d.fields?.total;
+      if (total != null) {
+        categoryTotals[d.category] = round2((categoryTotals[d.category] ?? 0) + total);
+      }
+    }
+
+    await syncChecklistFromCategories(
+      companyId,
+      periodId,
+      documents.map((d) => d.category as DocumentCategory)
+    );
 
     return NextResponse.json(
       {
@@ -87,8 +121,11 @@ export async function POST(request: Request) {
         count: documents.length,
         documents,
         document: documents[0],
+        categoryCounts,
+        categoryTotals,
         ai: aiResults[0],
-        aiResults
+        aiResults,
+        tidyResults
       },
       { status: 201 }
     );

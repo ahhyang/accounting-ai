@@ -4,8 +4,9 @@ import { BOOKKEEPING_SYSTEM_PROMPT } from "@/lib/ai/extraction";
 import { createAndPostJournal, PostingError } from "@/lib/accounting/posting";
 import { getAccountByCode, nextDocNumber, round2 } from "@/lib/accounting/helpers";
 import { writeAuditEvent } from "@/lib/audit/log";
-import { resolveDocumentFile, isScannableMime } from "@/lib/portal/document-file";
+import { resolveDocumentFile, isScannableMime, isImageMime, isPdfMime } from "@/lib/portal/document-file";
 import { buildScanFallback, extractFromScannedFile } from "@/lib/portal/scan-extract";
+import { canReadFileContents } from "@/lib/portal/structured-extract";
 
 function safeParseJson(text: string): Record<string, unknown> | null {
   try {
@@ -23,10 +24,18 @@ export async function runAiOnDocument(documentId: string) {
   let parsed: Record<string, unknown> | null = null;
   let modelOutput = "";
   let confidence = 55;
+  let aiUsed = false;
+  let aiError: string | null = null;
 
   const resolvedFile = await resolveDocumentFile(doc);
+  const canExtract =
+    resolvedFile &&
+    (isScannableMime(resolvedFile.mimeType) ||
+      canReadFileContents(resolvedFile.mimeType, resolvedFile.fileName) ||
+      isImageMime(resolvedFile.mimeType) ||
+      isPdfMime(resolvedFile.mimeType));
 
-  if (resolvedFile && isScannableMime(resolvedFile.mimeType)) {
+  if (resolvedFile && canExtract) {
     try {
       const { result, modelOutput: output } = await extractFromScannedFile({
         file: resolvedFile,
@@ -37,8 +46,10 @@ export async function runAiOnDocument(documentId: string) {
       parsed = result as unknown as Record<string, unknown>;
       modelOutput = output;
       confidence = result.confidence;
-    } catch {
-      parsed = buildScanFallback(doc.category, doc.fileName ?? "document") as unknown as Record<
+      aiUsed = true;
+    } catch (error) {
+      aiError = error instanceof Error ? error.message : "Vision extract failed";
+      parsed = buildScanFallback(doc.category, doc.fileName ?? "document", aiError) as unknown as Record<
         string,
         unknown
       >;
@@ -51,22 +62,31 @@ Document category: ${doc.category}
 File name: ${doc.fileName ?? "unknown"}
 Client note: ${doc.clientNote ?? "n/a"}
 Existing extracted: ${JSON.stringify(doc.extractedJson ?? {})}
-If details unknown, invent a realistic conservative proposal based on category and set confidence below 70.
+Extract what you can from the filename and note. Return valid JSON only.
+If details unknown, omit fields and set confidence below 60 — do not invent fake merchants or amounts.
 `.trim();
 
     try {
       modelOutput = await callOpenRouter(BOOKKEEPING_SYSTEM_PROMPT, userPrompt);
       parsed = safeParseJson(modelOutput);
       if (parsed?.confidence != null) confidence = Number(parsed.confidence);
-    } catch {
-      parsed = buildFallbackProposal(doc.category, doc.fileName ?? "document");
-      confidence = Number(parsed.confidence ?? 50);
+      aiUsed = Boolean(parsed);
+      if (!parsed) {
+        aiError = "AI returned non-JSON response";
+        parsed = buildFallbackProposal(doc.category, doc.fileName ?? "document", aiError);
+        confidence = 45;
+      }
+    } catch (error) {
+      aiError = error instanceof Error ? error.message : "OpenRouter call failed";
+      parsed = buildFallbackProposal(doc.category, doc.fileName ?? "document", aiError);
+      confidence = Number(parsed.confidence ?? 45);
       modelOutput = JSON.stringify(parsed);
     }
   }
 
   if (!parsed) {
-    parsed = buildFallbackProposal(doc.category, doc.fileName ?? "document");
+    aiError = aiError ?? "No AI extraction result";
+    parsed = buildFallbackProposal(doc.category, doc.fileName ?? "document", aiError);
     confidence = 45;
   }
 
@@ -79,28 +99,30 @@ If details unknown, invent a realistic conservative proposal based on category a
       confidence,
       payload: {
         modelOutput,
+        aiUsed,
+        aiError,
         ...(parsed as object)
       }
     }
   });
 
-  const status =
-    confidence >= 95 ? "IN_REVIEW" : confidence >= 70 ? "IN_REVIEW" : "IN_REVIEW";
-
   await db.sourceDocument.update({
     where: { id: doc.id },
     data: {
-      status: confidence < 50 ? "IN_REVIEW" : status,
+      status: "IN_REVIEW",
       aiConfidence: confidence,
-      extractedJson: parsed as object
+      extractedJson: {
+        ...(parsed as object),
+        aiMeta: { aiUsed, aiError }
+      }
     }
   });
 
-  return { suggestion, confidence, parsed };
+  return { suggestion, confidence, parsed, aiUsed, aiError };
 }
 
-function buildFallbackProposal(category: string, fileName: string) {
-  return buildScanFallback(category, fileName) as unknown as Record<string, unknown>;
+function buildFallbackProposal(category: string, fileName: string, aiError?: string) {
+  return buildScanFallback(category, fileName, aiError) as unknown as Record<string, unknown>;
 }
 
 export async function approveSuggestionAndPost(input: {
@@ -197,12 +219,7 @@ export async function askClientForDocumentFix(input: {
     data: { status: "NEEDS_CLIENT" }
   });
 
-  await db.documentRequest.updateMany({
-    where: { sourceDocumentId: doc.id },
-    data: { status: "NEEDS_FIX" }
-  });
-
-  const msg = await db.clientMessage.create({
+  await db.clientMessage.create({
     data: {
       companyId: doc.companyId,
       sourceDocumentId: doc.id,
@@ -217,9 +234,9 @@ export async function askClientForDocumentFix(input: {
     actorUserId: input.accountantUserId,
     entityType: "SourceDocument",
     entityId: doc.id,
-    action: "REQUEST_CLIENT_FIX",
-    afterJson: { messageId: msg.id, message: input.message }
+    action: "ASK_CLIENT_FIX",
+    afterJson: { message: input.message }
   });
 
-  return msg;
+  return doc;
 }

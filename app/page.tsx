@@ -1,60 +1,68 @@
 import Link from "next/link";
 
-const moduleMap = [
-  "Scan Bill / Receipt (camera, OCR, Excel export)",
-  "Client Portal (guided uploads)",
-  "Accountant Inbox (AI approve / manual)",
-  "Tax pack (SST input/output)",
-  "Audit readiness (trial balance + exceptions)",
-  "Manager month-end close",
-  "Boss / Partner firm oversight",
-  "Sales / AR · Purchases / AP · Banking"
+const demos = [
+  { role: "Client", email: "client@demo.my", blurb: "Upload & scan bills" },
+  { role: "Accountant", email: "accountant@demo.my", blurb: "Review & post" },
+  { role: "Tax", email: "tax@demo.my", blurb: "SST & tax advise" },
+  { role: "Audit", email: "audit@demo.my", blurb: "Readiness checks" },
+  { role: "Manager", email: "manager@demo.my", blurb: "Month-end close" },
+  { role: "Boss", email: "boss@demo.my", blurb: "Firm overview" }
 ];
 
-const demos = [
-  { role: "Client", email: "client@demo.my" },
-  { role: "Accountant", email: "accountant@demo.my" },
-  { role: "Tax", email: "tax@demo.my" },
-  { role: "Audit", email: "audit@demo.my" },
-  { role: "Manager", email: "manager@demo.my" },
-  { role: "Boss", email: "boss@demo.my" }
+const flow = [
+  "Client uploads or scans",
+  "AI tidies & extracts",
+  "Accountant posts books",
+  "Tax · Audit · Close"
 ];
 
 export default function HomePage() {
   return (
     <main className="container grid">
       <section className="card">
-        <h1>AI Finance OS</h1>
-        <p className="muted">
-          Built for Malaysian SME accounting firms: Client uploads → Accountant books → Tax pack →
-          Audit readiness → Manager close → Boss oversight.
-        </p>
-        <div className="row">
+        <div className="page-header">
+          <h1>AI Finance OS</h1>
+          <p className="muted">
+            Malaysian SME accounting workflow — from client documents to posted books, tax pack,
+            audit readiness, and firm oversight.
+          </p>
+        </div>
+        <div className="btn-row" style={{ marginTop: 16 }}>
           <Link className="btn" href="/login">
-            Sign in
+            Sign in to demo
           </Link>
         </div>
       </section>
 
       <section className="card">
-        <h2>Demo logins</h2>
-        <p className="muted">Password for all accounts: demo1234</p>
-        <ul>
-          {demos.map((d) => (
-            <li key={d.email}>
-              {d.role}: {d.email}
-            </li>
+        <h2>How work moves</h2>
+        <div className="metrics">
+          {flow.map((step, i) => (
+            <div key={step} className="demo-chip">
+              <strong>
+                {i + 1}. {step}
+              </strong>
+            </div>
           ))}
-        </ul>
+        </div>
       </section>
 
       <section className="card">
-        <h2>Modules</h2>
-        <ul>
-          {moduleMap.map((item) => (
-            <li key={item}>{item}</li>
+        <h2>Demo logins</h2>
+        <p className="muted" style={{ marginBottom: 12 }}>
+          Password for every account: <strong>demo1234</strong>
+        </p>
+        <div className="demo-grid">
+          {demos.map((d) => (
+            <div key={d.email} className="demo-chip">
+              <strong>{d.role}</strong>
+              <code>{d.email}</code>
+              <span className="muted" style={{ fontSize: 13 }}>
+                {d.blurb}
+              </span>
+            </div>
           ))}
-        </ul>
+        </div>
       </section>
     </main>
   );

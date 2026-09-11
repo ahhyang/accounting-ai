@@ -181,14 +181,7 @@ function BankingPageInner() {
           value={importText}
           onChange={(e) => setImportText(e.target.value)}
           rows={8}
-          style={{
-            width: "100%",
-            background: "#0b1020",
-            color: "#eef2ff",
-            border: "1px solid #273159",
-            borderRadius: 8,
-            padding: 12
-          }}
+          className="mono"
         />
         <div className="row">
           <button type="button" className="btn" onClick={importAndMatch}>

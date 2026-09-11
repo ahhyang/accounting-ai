@@ -61,7 +61,7 @@ copy .env.example .env
 Set in `.env`:
 - `DATABASE_URL` — Neon connection string
 - `OPENROUTER_API_KEY` — your key (never commit this)
-- `OPENROUTER_MODEL` — optional, defaults to `qwen/qwen2.5-vl-7b-instruct`
+- `OPENROUTER_MODEL` — optional, defaults to `qwen/qwen3-vl-8b-instruct`
 - `OPENROUTER_VISION_MODEL` — optional, same Qwen VL model for bill/receipt scanning
 
 ```bash

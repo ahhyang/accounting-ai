@@ -19,3 +19,10 @@ pnpm-debug.log*
 # prisma
 /prisma/dev.db*
 .vercel
+.env*
+
+# build artifacts
+*.tsbuildinfo
+samples.zip
+__pycache__/
+*.pyc

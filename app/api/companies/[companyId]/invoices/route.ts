@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { db } from "@/lib/db";
+import { requireCompanyAccess } from "@/lib/auth/session";
 import { createSalesInvoice, getArAging } from "@/lib/ar/service";
 import { PostingError } from "@/lib/accounting/posting";
 
@@ -18,6 +19,9 @@ export async function GET(
   request: Request,
   { params }: { params: { companyId: string } }
 ) {
+  const auth = await requireCompanyAccess(params.companyId, { permission: "VIEW" });
+  if (!auth.ok) return auth.error;
+
   const aging = new URL(request.url).searchParams.get("aging") === "1";
 
   if (aging) {
@@ -39,6 +43,9 @@ export async function POST(
   { params }: { params: { companyId: string } }
 ) {
   try {
+    const auth = await requireCompanyAccess(params.companyId, { permission: "CREATE" });
+    if (!auth.ok) return auth.error;
+
     const payload = schema.parse(await request.json());
     const result = await createSalesInvoice({
       companyId: params.companyId,

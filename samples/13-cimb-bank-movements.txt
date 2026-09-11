@@ -1,0 +1,17 @@
+CIMB BUSINESS CURRENT ACCOUNT STATEMENT
+Account: 8001-2233-4455
+Period: 2026-05-01 to 2026-05-31
+Opening balance: RM 12,880.40
+----------------------------------------
+2026-05-04  DIGI BILL DIGI-202605-88421     -109.18
+2026-05-10  SUNRISE RETAIL SI-2026-088      3922.00
+2026-05-18  SHOPEE OFFICEMART SP-260529     -150.40
+2026-05-20  TNB ELECTRICITY TNB-MAY-4412    -189.10
+2026-05-22  PARK AVENUE HOTEL HT-INV-55201  -904.82
+2026-05-28  PAYROLL NET PAY MAY             -3945.10
+----------------------------------------
+Closing balance: RM 11,503.80
+Currency: MYR
+Category: BANK
+
+Sample file for AI Finance OS client upload testing

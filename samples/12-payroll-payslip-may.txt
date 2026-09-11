@@ -1,0 +1,26 @@
+PAYROLL PAYSLIP - MAY 2026
+========================================
+Employer: Demo Trading Sdn Bhd
+Employee: Ahmad Faizal Bin Omar
+Employee No: EMP-014
+Pay period: 2026-05-01 to 2026-05-31
+Pay date: 2026-05-28
+Doc No: PAY-2026-05-014
+----------------------------------------
+Basic salary                 RM  4,200.00
+Allowances                   RM    350.00
+Overtime                     RM    180.00
+Gross pay                    RM  4,730.00
+----------------------------------------
+EPF employee                 RM   -520.00
+SOCSO                        RM    -45.50
+EIS                          RM     -9.40
+PCB / Tax                    RM   -210.00
+----------------------------------------
+SUBTOTAL (gross)             RM  4,730.00
+TAX (PCB)                    RM    210.00
+TOTAL NET PAY                RM  3,945.10
+Currency: MYR
+Category: PAYROLL
+
+Sample file for AI Finance OS client upload testing

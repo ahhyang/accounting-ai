@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { db } from "@/lib/db";
+import { requireCompanyAccess } from "@/lib/auth/session";
 import {
   calculateCompletionScore,
   getRemainingTasks
@@ -11,6 +12,9 @@ export async function GET(
   request: Request,
   { params }: { params: { companyId: string } }
 ) {
+  const auth = await requireCompanyAccess(params.companyId, { portal: "staff" });
+  if (!auth.ok) return auth.error;
+
   const { searchParams } = new URL(request.url);
   const periodId = searchParams.get("periodId");
 
@@ -63,6 +67,9 @@ export async function PATCH(
   { params }: { params: { companyId: string } }
 ) {
   try {
+    const auth = await requireCompanyAccess(params.companyId, { portal: "staff" });
+    if (!auth.ok) return auth.error;
+
     const json = await request.json();
     const payload = updateSchema.parse(json);
 
