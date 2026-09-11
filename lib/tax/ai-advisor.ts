@@ -551,7 +551,16 @@ ${JSON.stringify(
 `.trim();
 
   try {
-    const raw = await callOpenRouter(systemPrompt, userPrompt);
+    const raw = await Promise.race([
+      callOpenRouter(systemPrompt, userPrompt, {
+        timeoutMs: 40_000,
+        maxTokens: 3_000,
+        reasoningEffort: "low"
+      }),
+      new Promise<string>((_, reject) =>
+        setTimeout(() => reject(new Error("AI advise timed out")), 50_000)
+      )
+    ]);
     const parsed = safeParseAdvise(raw);
     if (parsed) {
       aiUsed = true;
